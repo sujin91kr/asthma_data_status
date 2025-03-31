@@ -1,4 +1,549 @@
-import streamlit as st
+st.info("Omics 조합을 생성할 수 없습니다. 유효한 데이터가 부족합니다.")
+
+# 메인 함수
+def main():
+    if not st.session_state.logged_in:
+        login_page()
+    else:
+        # 사이드바 메뉴
+        sidebar_menu()
+        
+        # 현재 페이지에 맞는 컨텐츠 표시
+        if st.session_state.page == 'original_data':
+            original_data_page()
+        elif st.session_state.page == 'validation_check':
+            validation_check_page()
+        elif st.session_state.page == 'pivot_tables':
+            pivot_tables_page()
+        elif st.session_state.page == 'omics_summary':
+            omics_summary_page()
+        elif st.session_state.page == 'omics_combination':
+            omics_combination_page()
+        else:
+            original_data_page()  # 기본 페이지
+
+if __name__ == "__main__":
+    main()
+        
+        # PRISMUK 기존 Omics 조합
+        with existing_tab3:
+            # Omics 조합 생성
+            omics_combo = create_omics_combo(valid_df)
+            
+            if omics_combo is not None:
+                # PRISMUK 데이터 필터링
+                prismuk_combo = omics_combo[omics_combo['Project'] == 'PRISMUK'][['OmicsCombo', 'PatientCount']]
+                
+                if len(prismuk_combo) > 0:
+                    st.dataframe(prismuk_combo, use_container_width=True)
+                    
+                    # 조합 선택
+                    selected_combo = st.selectbox(
+                        "OmicsCombo 선택:",
+                        options=prismuk_combo['OmicsCombo'].tolist(),
+                        key="prismuk_combo_selectbox"
+                    )
+                    
+                    if selected_combo:
+                        st.session_state.selected_omics_combo_prismuk = selected_combo
+                        
+                        # 선택된 OmicsCombo를 가진 환자들의 PatientID
+                        patients_with_combo = valid_df.groupby(['Project', 'PatientID']).apply(
+                            lambda x: ' + '.join(sorted(x['Omics'].unique()))
+                        ).reset_index().rename(columns={0: 'OmicsCombo'})
+                        
+                        relevant_patients = patients_with_combo[
+                            (patients_with_combo['Project'] == 'PRISMUK') & 
+                            (patients_with_combo['OmicsCombo'] == selected_combo)
+                        ]['PatientID'].tolist()
+                        
+                        if relevant_patients:
+                            # 해당 환자들의 데이터
+                            patient_data = valid_df[
+                                (valid_df['Project'] == 'PRISMUK') & 
+                                (valid_df['PatientID'].isin(relevant_patients))
+                            ].sort_values(['PatientID', 'Omics', 'Tissue', 'Visit'])
+                            
+                            # (Omics, Visit별) 샘플 수 계산
+                            sample_count = patient_data.groupby(['Omics', 'Tissue', 'Visit']).agg({
+                                'SampleID': 'nunique'
+                            }).reset_index().rename(columns={'SampleID': 'SampleCount'})
+                            
+                            # Pivot
+                            pivot_sample_count = sample_count.pivot_table(
+                                index=['Omics', 'Tissue'],
+                                columns='Visit',
+                                values='SampleCount',
+                                aggfunc='sum'
+                            ).reset_index().fillna(0)
+                            
+                            # 결과 표시
+                            st.markdown("---")
+                            st.markdown(f"### 선택된 OmicsCombo({selected_combo})에 속한 Patient들의 (Omics, Visit별) 샘플수")
+                            st.dataframe(pivot_sample_count, use_container_width=True)
+                            
+                            # 엑셀 다운로드
+                            if st.button("해당 OmicsCombo 데이터 (엑셀) 다운로드", key="download_prismuk_excel"):
+                                # 엑셀 파일 생성
+                                output = BytesIO()
+                                
+                                # 원하는 컬럼만 정리해서 저장
+                                df_save = patient_data[['PatientID', 'Omics', 'Tissue', 'Visit', 'SampleID']].copy()
+                                df_save['Omics_Tissue'] = df_save['Omics'] + "__" + df_save['Tissue']
+                                df_save = df_save[['PatientID', 'Visit', 'Omics_Tissue', 'SampleID']]
+                                
+                                # Pivot 테이블 생성
+                                pivot_save = df_save.pivot_table(
+                                    index=['PatientID', 'Visit'],
+                                    columns='Omics_Tissue',
+                                    values='SampleID',
+                                    aggfunc='first'
+                                ).reset_index().fillna('')
+                                
+                                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                                    pivot_save.to_excel(writer, index=False)
+                                
+                                # 다운로드 링크 생성
+                                output.seek(0)
+                                b64 = base64.b64encode(output.read()).decode()
+                                filename = f"PRISMUK_{re.sub(' ', '_', selected_combo)}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                                href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">엑셀 파일 다운로드 (클릭)</a>'
+                                st.markdown(href, unsafe_allow_html=True)
+                        else:
+                            st.info("해당 OmicsCombo를 가진 환자가 없습니다.")
+                else:
+                    st.info("PRISMUK 프로젝트에 대한 Omics 조합이 없습니다.")
+            else:
+                st.info("Omics 조합을 생성할 수 없습니다. 유효한 데이터가 부족합니다.")                        st.markdown("</div>", unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown("### 선택된 Omics 조합 결과")
+                
+                # 선택된 Omics, Tissue, Visit에 따른 데이터 필터링
+                filtered_data = get_hierarchy_filtered_data(valid_df, 'PRISM', st.session_state.hierarchy_values)
+                
+                if filtered_data is not None and len(filtered_data) > 0:
+                    # 요약 정보 표시
+                    patient_count = filtered_data['PatientID'].nunique()
+                    sample_count = filtered_data['SampleID'].nunique()
+                    
+                    st.markdown(f"**선택된 조건에 맞는 환자 수:** {patient_count}, **샘플 수:** {sample_count}")
+                    
+                    # 계층적 결과 요약 생성
+                    hierarchy_summary = create_hierarchy_summary(filtered_data)
+                    
+                    if hierarchy_summary is not None:
+                        st.dataframe(hierarchy_summary, use_container_width=True)
+                    
+                    # 엑셀 다운로드
+                    st.markdown("---")
+                    
+                    if st.button("선택된 Omics 샘플 엑셀 다운로드", key="hierarchy_download_prismuk"):
+                        # 여러 시트가 있는 Excel 파일 생성
+                        output = BytesIO()
+                        
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            # 시트1: 요약 정보
+                            summary_data = filtered_data.groupby(['Omics', 'Tissue', 'Visit']).agg({
+                                'PatientID': 'nunique',
+                                'SampleID': 'nunique'
+                            }).reset_index().rename(columns={'PatientID': 'PatientCount', 'SampleID': 'SampleCount'})
+                            
+                            summary_data.to_excel(writer, sheet_name="조합별 요약", index=False)
+                            
+                            # 시트2: 환자별 샘플 정보
+                            patient_samples = filtered_data[['PatientID', 'Visit', 'Omics', 'Tissue', 'SampleID']].sort_values(
+                                by=['PatientID', 'Visit', 'Omics', 'Tissue']
+                            )
+                            
+                            patient_samples.to_excel(writer, sheet_name="환자별 샘플", index=False)
+                            
+                            # 시트3: 환자-방문 조합별 샘플 수
+                            patient_visit_summary = filtered_data.groupby(['PatientID', 'Visit']).agg({
+                                'Omics': 'nunique',
+                                'Tissue': 'nunique',
+                                'SampleID': 'nunique'
+                            }).reset_index().rename(columns={
+                                'Omics': 'OmicsCount',
+                                'Tissue': 'TissueCount',
+                                'SampleID': 'SampleCount'
+                            })
+                            
+                            patient_visit_summary.to_excel(writer, sheet_name="환자별 방문별 샘플 수", index=False)
+                            
+                            # 시트4: 전체 선택 데이터
+                            filtered_data.to_excel(writer, sheet_name="전체 데이터", index=False)
+                        
+                        # 다운로드 링크 생성
+                        output.seek(0)
+                        b64 = base64.b64encode(output.read()).decode()
+                        filename = f"PRISMUK_Selected_Omics_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                        href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">엑셀 파일 다운로드 (클릭)</a>'
+                        st.markdown(href, unsafe_allow_html=True)
+                else:
+                    st.info("선택된 항목이 없거나 조건에 맞는 데이터가 없습니다.")
+    
+    with tab2:
+        st.markdown("### 기존 Omics 조합")
+        
+        existing_tab1, existing_tab2, existing_tab3 = st.tabs(["COREA", "PRISM", "PRISMUK"])
+        
+        # COREA 기존 Omics 조합
+        with existing_tab1:
+            # Omics 조합 생성
+            omics_combo = create_omics_combo(valid_df)
+            
+            if omics_combo is not None:
+                # COREA 데이터 필터링
+                corea_combo = omics_combo[omics_combo['Project'] == 'COREA'][['OmicsCombo', 'PatientCount']]
+                
+                if len(corea_combo) > 0:
+                    st.dataframe(corea_combo, use_container_width=True)
+                    
+                    # 조합 선택
+                    selected_combo = st.selectbox(
+                        "OmicsCombo 선택:",
+                        options=corea_combo['OmicsCombo'].tolist(),
+                        key="corea_combo_selectbox"
+                    )
+                    
+                    if selected_combo:
+                        st.session_state.selected_omics_combo_corea = selected_combo
+                        
+                        # 선택된 OmicsCombo를 가진 환자들의 PatientID
+                        patients_with_combo = valid_df.groupby(['Project', 'PatientID']).apply(
+                            lambda x: ' + '.join(sorted(x['Omics'].unique()))
+                        ).reset_index().rename(columns={0: 'OmicsCombo'})
+                        
+                        relevant_patients = patients_with_combo[
+                            (patients_with_combo['Project'] == 'COREA') & 
+                            (patients_with_combo['OmicsCombo'] == selected_combo)
+                        ]['PatientID'].tolist()
+                        
+                        if relevant_patients:
+                            # 해당 환자들의 데이터
+                            patient_data = valid_df[
+                                (valid_df['Project'] == 'COREA') & 
+                                (valid_df['PatientID'].isin(relevant_patients))
+                            ].sort_values(['PatientID', 'Omics', 'Tissue', 'Visit'])
+                            
+                            # (Omics, Visit별) 샘플 수 계산
+                            sample_count = patient_data.groupby(['Omics', 'Tissue', 'Visit']).agg({
+                                'SampleID': 'nunique'
+                            }).reset_index().rename(columns={'SampleID': 'SampleCount'})
+                            
+                            # Pivot
+                            pivot_sample_count = sample_count.pivot_table(
+                                index=['Omics', 'Tissue'],
+                                columns='Visit',
+                                values='SampleCount',
+                                aggfunc='sum'
+                            ).reset_index().fillna(0)
+                            
+                            # 결과 표시
+                            st.markdown("---")
+                            st.markdown(f"### 선택된 OmicsCombo({selected_combo})에 속한 Patient들의 (Omics, Visit별) 샘플수")
+                            st.dataframe(pivot_sample_count, use_container_width=True)
+                            
+                            # 엑셀 다운로드
+                            if st.button("해당 OmicsCombo 데이터 (엑셀) 다운로드", key="download_corea_excel"):
+                                # 엑셀 파일 생성
+                                output = BytesIO()
+                                
+                                # 원하는 컬럼만 정리해서 저장
+                                df_save = patient_data[['PatientID', 'Omics', 'Tissue', 'Visit', 'SampleID']].copy()
+                                df_save['Omics_Tissue'] = df_save['Omics'] + "__" + df_save['Tissue']
+                                df_save = df_save[['PatientID', 'Visit', 'Omics_Tissue', 'SampleID']]
+                                
+                                # Pivot 테이블 생성
+                                pivot_save = df_save.pivot_table(
+                                    index=['PatientID', 'Visit'],
+                                    columns='Omics_Tissue',
+                                    values='SampleID',
+                                    aggfunc='first'
+                                ).reset_index().fillna('')
+                                
+                                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                                    pivot_save.to_excel(writer, index=False)
+                                
+                                # 다운로드 링크 생성
+                                output.seek(0)
+                                b64 = base64.b64encode(output.read()).decode()
+                                filename = f"COREA_{re.sub(' ', '_', selected_combo)}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                                href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">엑셀 파일 다운로드 (클릭)</a>'
+                                st.markdown(href, unsafe_allow_html=True)
+                        else:
+                            st.info("해당 OmicsCombo를 가진 환자가 없습니다.")
+                else:
+                    st.info("COREA 프로젝트에 대한 Omics 조합이 없습니다.")
+            else:
+                st.info("Omics 조합을 생성할 수 없습니다. 유효한 데이터가 부족합니다.")
+        
+        # PRISM 기존 Omics 조합
+        with existing_tab2:
+            # Omics 조합 생성
+            omics_combo = create_omics_combo(valid_df)
+            
+            if omics_combo is not None:
+                # PRISM 데이터 필터링
+                prism_combo = omics_combo[omics_combo['Project'] == 'PRISM'][['OmicsCombo', 'PatientCount']]
+                
+                if len(prism_combo) > 0:
+                    st.dataframe(prism_combo, use_container_width=True)
+                    
+                    # 조합 선택
+                    selected_combo = st.selectbox(
+                        "OmicsCombo 선택:",
+                        options=prism_combo['OmicsCombo'].tolist(),
+                        key="prism_combo_selectbox"
+                    )
+                    
+                    if selected_combo:
+                        st.session_state.selected_omics_combo_prism = selected_combo
+                        
+                        # 선택된 OmicsCombo를 가진 환자들의 PatientID
+                        patients_with_combo = valid_df.groupby(['Project', 'PatientID']).apply(
+                            lambda x: ' + '.join(sorted(x['Omics'].unique()))
+                        ).reset_index().rename(columns={0: 'OmicsCombo'})
+                        
+                        relevant_patients = patients_with_combo[
+                            (patients_with_combo['Project'] == 'PRISM') & 
+                            (patients_with_combo['OmicsCombo'] == selected_combo)
+                        ]['PatientID'].tolist()
+                        
+                        if relevant_patients:
+                            # 해당 환자들의 데이터
+                            patient_data = valid_df[
+                                (valid_df['Project'] == 'PRISM') & 
+                                (valid_df['PatientID'].isin(relevant_patients))
+                            ].sort_values(['PatientID', 'Omics', 'Tissue', 'Visit'])
+                            
+                            # (Omics, Visit별) 샘플 수 계산
+                            sample_count = patient_data.groupby(['Omics', 'Tissue', 'Visit']).agg({
+                                'SampleID': 'nunique'
+                            }).reset_index().rename(columns={'SampleID': 'SampleCount'})
+                            
+                            # Pivot
+                            pivot_sample_count = sample_count.pivot_table(
+                                index=['Omics', 'Tissue'],
+                                columns='Visit',
+                                values='SampleCount',
+                                aggfunc='sum'
+                            ).reset_index().fillna(0)
+                            
+                            # 결과 표시
+                            st.markdown("---")
+                            st.markdown(f"### 선택된 OmicsCombo({selected_combo})에 속한 Patient들의 (Omics, Visit별) 샘플수")
+                            st.dataframe(pivot_sample_count, use_container_width=True)
+                            
+                            # 엑셀 다운로드
+                            if st.button("해당 OmicsCombo 데이터 (엑셀) 다운로드", key="download_prism_excel"):
+                                # 엑셀 파일 생성
+                                output = BytesIO()
+                                
+                                # 원하는 컬럼만 정리해서 저장
+                                df_save = patient_data[['PatientID', 'Omics', 'Tissue', 'Visit', 'SampleID']].copy()
+                                df_save['Omics_Tissue'] = df_save['Omics'] + "__" + df_save['Tissue']
+                                df_save = df_save[['PatientID', 'Visit', 'Omics_Tissue', 'SampleID']]
+                                
+                                # Pivot 테이블 생성
+                                pivot_save = df_save.pivot_table(
+                                    index=['PatientID', 'Visit'],
+                                    columns='Omics_Tissue',
+                                    values='SampleID',
+                                    aggfunc='first'
+                                ).reset_index().fillna('')
+                                
+                                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                                    pivot_save.to_excel(writer, index=False)
+                                
+                                # 다운로드 링크 생성
+                                output.seek(0)
+                                b64 = base64.b64encode(output.read()).decode()
+                                filename = f"PRISM_{re.sub(' ', '_', selected_combo)}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                                href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">엑셀 파일 다운로드 (클릭)</a>'
+                                st.markdown(href, unsafe_allow_html=True)
+                        else:
+                            st.info("해당 OmicsCombo를 가진 환자가 없습니다.")
+                else:
+                    st.info("PRISM 프로젝트에 대한 Omics 조합이 없습니다.")
+            else:
+                st.info("Omics 조합을 생성할 수 없습니다. 유효한 데이터가 부족합니다.")
+                    
+                    if st.button("선택된 Omics 샘플 엑셀 다운로드", key="hierarchy_download_prism"):
+                        # 여러 시트가 있는 Excel 파일 생성
+                        output = BytesIO()
+                        
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            # 시트1: 요약 정보
+                            summary_data = filtered_data.groupby(['Omics', 'Tissue', 'Visit']).agg({
+                                'PatientID': 'nunique',
+                                'SampleID': 'nunique'
+                            }).reset_index().rename(columns={'PatientID': 'PatientCount', 'SampleID': 'SampleCount'})
+                            
+                            summary_data.to_excel(writer, sheet_name="조합별 요약", index=False)
+                            
+                            # 시트2: 환자별 샘플 정보
+                            patient_samples = filtered_data[['PatientID', 'Visit', 'Omics', 'Tissue', 'SampleID']].sort_values(
+                                by=['PatientID', 'Visit', 'Omics', 'Tissue']
+                            )
+                            
+                            patient_samples.to_excel(writer, sheet_name="환자별 샘플", index=False)
+                            
+                            # 시트3: 환자-방문 조합별 샘플 수
+                            patient_visit_summary = filtered_data.groupby(['PatientID', 'Visit']).agg({
+                                'Omics': 'nunique',
+                                'Tissue': 'nunique',
+                                'SampleID': 'nunique'
+                            }).reset_index().rename(columns={
+                                'Omics': 'OmicsCount',
+                                'Tissue': 'TissueCount',
+                                'SampleID': 'SampleCount'
+                            })
+                            
+                            patient_visit_summary.to_excel(writer, sheet_name="환자별 방문별 샘플 수", index=False)
+                            
+                            # 시트4: 전체 선택 데이터
+                            filtered_data.to_excel(writer, sheet_name="전체 데이터", index=False)
+                        
+                        # 다운로드 링크 생성
+                        output.seek(0)
+                        b64 = base64.b64encode(output.read()).decode()
+                        filename = f"PRISM_Selected_Omics_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                        href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">엑셀 파일 다운로드 (클릭)</a>'
+                        st.markdown(href, unsafe_allow_html=True)
+                else:
+                    st.info("선택된 항목이 없거나 조건에 맞는 데이터가 없습니다.")
+        
+        # PRISMUK 계층적 선택
+        with hierarchy_tab3:
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                st.markdown("### Omics 선택")
+                
+                # 버튼 행 추가
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("모두 선택", key="select_all_prismuk"):
+                        # 모든 Omics 선택
+                        all_omics = valid_df[valid_df['Project'] == 'PRISMUK']['Omics'].unique().tolist()
+                        st.session_state.hierarchy_values['prismuk_omics'] = all_omics
+                        
+                        # 모든 Tissues 선택
+                        all_tissues = []
+                        all_visits = {}
+                        
+                        for omics in all_omics:
+                            tissues = valid_df[(valid_df['Project'] == 'PRISMUK') & (valid_df['Omics'] == omics)]['Tissue'].unique().tolist()
+                            
+                            for tissue in tissues:
+                                omics_tissue_key = f"{omics}___{tissue}"
+                                all_tissues.append(omics_tissue_key)
+                                all_visits[omics_tissue_key] = valid_visits
+                        
+                        st.session_state.hierarchy_values['prismuk_tissues'] = all_tissues
+                        st.session_state.hierarchy_values['prismuk_visits'] = all_visits
+                        
+                        st.experimental_rerun()
+                
+                with col_btn2:
+                    if st.button("모두 해제", key="clear_all_prismuk"):
+                        st.session_state.hierarchy_values['prismuk_omics'] = []
+                        st.session_state.hierarchy_values['prismuk_tissues'] = []
+                        st.session_state.hierarchy_values['prismuk_visits'] = {}
+                        st.experimental_rerun()
+                
+                st.markdown("---")
+                
+                # Omics 목록 가져오기
+                omics_list = valid_df[valid_df['Project'] == 'PRISMUK']['Omics'].unique().tolist()
+                omics_list.sort()
+                
+                # 각 Omics에 대한 체크박스 표시
+                for omics in omics_list:
+                    is_selected = omics in st.session_state.hierarchy_values['prismuk_omics']
+                    
+                    if st.checkbox(omics, value=is_selected, key=f"prismuk_omics_{omics}"):
+                        if omics not in st.session_state.hierarchy_values['prismuk_omics']:
+                            st.session_state.hierarchy_values['prismuk_omics'].append(omics)
+                    else:
+                        if omics in st.session_state.hierarchy_values['prismuk_omics']:
+                            st.session_state.hierarchy_values['prismuk_omics'].remove(omics)
+                            
+                            # Tissues 및 Visits 업데이트
+                            updated_tissues = []
+                            updated_visits = {}
+                            
+                            for tissue_key in st.session_state.hierarchy_values['prismuk_tissues']:
+                                if not tissue_key.startswith(f"{omics}___"):
+                                    updated_tissues.append(tissue_key)
+                                    if tissue_key in st.session_state.hierarchy_values['prismuk_visits']:
+                                        updated_visits[tissue_key] = st.session_state.hierarchy_values['prismuk_visits'][tissue_key]
+                            
+                            st.session_state.hierarchy_values['prismuk_tissues'] = updated_tissues
+                            st.session_state.hierarchy_values['prismuk_visits'] = updated_visits
+                    
+                    # Omics가 선택된 경우, 해당 Omics의 Tissue 체크박스 표시
+                    if omics in st.session_state.hierarchy_values['prismuk_omics']:
+                        tissues = valid_df[(valid_df['Project'] == 'PRISMUK') & (valid_df['Omics'] == omics)]['Tissue'].unique().tolist()
+                        tissues.sort()
+                        
+                        st.markdown(f"<div class='hierarchy-item'>", unsafe_allow_html=True)
+                        
+                        for tissue in tissues:
+                            omics_tissue_key = f"{omics}___{tissue}"
+                            is_tissue_selected = omics_tissue_key in st.session_state.hierarchy_values['prismuk_tissues']
+                            
+                            if st.checkbox(tissue, value=is_tissue_selected, key=f"prismuk_tissue_{omics}_{tissue}"):
+                                if omics_tissue_key not in st.session_state.hierarchy_values['prismuk_tissues']:
+                                    st.session_state.hierarchy_values['prismuk_tissues'].append(omics_tissue_key)
+                                    st.session_state.hierarchy_values['prismuk_visits'][omics_tissue_key] = valid_visits.copy()
+                            else:
+                                if omics_tissue_key in st.session_state.hierarchy_values['prismuk_tissues']:
+                                    st.session_state.hierarchy_values['prismuk_tissues'].remove(omics_tissue_key)
+                                    if omics_tissue_key in st.session_state.hierarchy_values['prismuk_visits']:
+                                        del st.session_state.hierarchy_values['prismuk_visits'][omics_tissue_key]
+                            
+                            # Tissue가 선택된 경우, 해당 Tissue의 Visit 체크박스 표시
+                            if omics_tissue_key in st.session_state.hierarchy_values['prismuk_tissues']:
+                                st.markdown(f"<div class='hierarchy-item'>", unsafe_allow_html=True)
+                                
+                                # 각 Visit에 대한 체크박스 표시
+                                selected_visits = st.multiselect(
+                                    "Visit:",
+                                    options=valid_visits,
+                                    default=st.session_state.hierarchy_values['prismuk_visits'].get(omics_tissue_key, valid_visits),
+                                    key=f"prismuk_visits_{omics}_{tissue}"
+                                )
+                                
+                                st.session_state.hierarchy_values['prismuk_visits'][omics_tissue_key] = selected_visits
+                                
+                                st.markdown("</div>", unsafe_allow_html=True)
+                        
+                        st.markdown("</div>", unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown("### 선택된 Omics 조합 결과")
+                
+                # 선택된 Omics, Tissue, Visit에 따른 데이터 필터링
+                filtered_data = get_hierarchy_filtered_data(valid_df, 'PRISMUK', st.session_state.hierarchy_values)
+                
+                if filtered_data is not None and len(filtered_data) > 0:
+                    # 요약 정보 표시
+                    patient_count = filtered_data['PatientID'].nunique()
+                    sample_count = filtered_data['SampleID'].nunique()
+                    
+                    st.markdown(f"**선택된 조건에 맞는 환자 수:** {patient_count}, **샘플 수:** {sample_count}")
+                    
+                    # 계층적 결과 요약 생성
+                    hierarchy_summary = create_hierarchy_summary(filtered_data)
+                    
+                    if hierarchy_summary is not None:
+                        st.dataframe(hierarchy_summary, use_container_width=True)
+                    
+                    # 엑셀 다운로드
+                    st.markdown("---")import streamlit as st
 import pandas as pd
 import numpy as np
 import base64
@@ -339,7 +884,7 @@ def create_omics_combo(df):
     
     return combo_count
 
-# 계층적 필터링 데이터 - COREA
+# 계층적 필터링 데이터
 def get_hierarchy_filtered_data(df, project, hierarchy_values):
     if df is None or hierarchy_values is None:
         return None
@@ -868,518 +1413,6 @@ def omics_combination_page():
                         # 다운로드 링크 생성
                         output.seek(0)
                         b64 = base64.b64encode(output.read()).decode()
-                        filename = f"PRISM_Selected_Omics_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                        href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">엑셀 파일 다운로드 (클릭)</a>'
-                        st.markdown(href, unsafe_allow_html=True)
-                else:
-                    st.info("선택된 항목이 없거나 조건에 맞는 데이터가 없습니다.")
-    
-    with tab2:
-        st.markdown("### 기존 Omics 조합")
-        
-        existing_tab1, existing_tab2, existing_tab3 = st.tabs(["COREA", "PRISM", "PRISMUK"])
-        
-        # COREA 기존 Omics 조합
-        with existing_tab1:
-            # Omics 조합 생성
-            omics_combo = create_omics_combo(valid_df)
-            
-            if omics_combo is not None:
-                # COREA 데이터 필터링
-                corea_combo = omics_combo[omics_combo['Project'] == 'COREA'][['OmicsCombo', 'PatientCount']]
-                
-                if len(corea_combo) > 0:
-                    st.dataframe(corea_combo, use_container_width=True)
-                    
-                    # 조합 선택
-                    selected_combo = st.selectbox(
-                        "OmicsCombo 선택:",
-                        options=corea_combo['OmicsCombo'].tolist(),
-                        key="corea_combo_selectbox"
-                    )
-                    
-                    if selected_combo:
-                        st.session_state.selected_omics_combo_corea = selected_combo
-                        
-                        # 선택된 OmicsCombo를 가진 환자들의 PatientID
-                        patients_with_combo = valid_df.groupby(['Project', 'PatientID']).apply(
-                            lambda x: ' + '.join(sorted(x['Omics'].unique()))
-                        ).reset_index().rename(columns={0: 'OmicsCombo'})
-                        
-                        relevant_patients = patients_with_combo[
-                            (patients_with_combo['Project'] == 'COREA') & 
-                            (patients_with_combo['OmicsCombo'] == selected_combo)
-                        ]['PatientID'].tolist()
-                        
-                        if relevant_patients:
-                            # 해당 환자들의 데이터
-                            patient_data = valid_df[
-                                (valid_df['Project'] == 'COREA') & 
-                                (valid_df['PatientID'].isin(relevant_patients))
-                            ].sort_values(['PatientID', 'Omics', 'Tissue', 'Visit'])
-                            
-                            # (Omics, Visit별) 샘플 수 계산
-                            sample_count = patient_data.groupby(['Omics', 'Tissue', 'Visit']).agg({
-                                'SampleID': 'nunique'
-                            }).reset_index().rename(columns={'SampleID': 'SampleCount'})
-                            
-                            # Pivot
-                            pivot_sample_count = sample_count.pivot_table(
-                                index=['Omics', 'Tissue'],
-                                columns='Visit',
-                                values='SampleCount',
-                                aggfunc='sum'
-                            ).reset_index().fillna(0)
-                            
-                            # 결과 표시
-                            st.markdown("---")
-                            st.markdown(f"### 선택된 OmicsCombo({selected_combo})에 속한 Patient들의 (Omics, Visit별) 샘플수")
-                            st.dataframe(pivot_sample_count, use_container_width=True)
-                            
-                            # 엑셀 다운로드
-                            if st.button("해당 OmicsCombo 데이터 (엑셀) 다운로드", key="download_prismuk_excel"):
-                                # 엑셀 파일 생성
-                                output = BytesIO()
-                                
-                                # 원하는 컬럼만 정리해서 저장
-                                df_save = patient_data[['PatientID', 'Omics', 'Tissue', 'Visit', 'SampleID']].copy()
-                                df_save['Omics_Tissue'] = df_save['Omics'] + "__" + df_save['Tissue']
-                                df_save = df_save[['PatientID', 'Visit', 'Omics_Tissue', 'SampleID']]
-                                
-                                # Pivot 테이블 생성
-                                pivot_save = df_save.pivot_table(
-                                    index=['PatientID', 'Visit'],
-                                    columns='Omics_Tissue',
-                                    values='SampleID',
-                                    aggfunc='first'
-                                ).reset_index().fillna('')
-                                
-                                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                                    pivot_save.to_excel(writer, index=False)
-                                
-                                # 다운로드 링크 생성
-                                output.seek(0)
-                                b64 = base64.b64encode(output.read()).decode()
-                                filename = f"PRISMUK_{re.sub(' ', '_', selected_combo)}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                                href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">엑셀 파일 다운로드 (클릭)</a>'
-                                st.markdown(href, unsafe_allow_html=True)
-                        else:
-                            st.info("해당 OmicsCombo를 가진 환자가 없습니다.")
-                else:
-                    st.info("PRISMUK 프로젝트에 대한 Omics 조합이 없습니다.")
-            else:
-                st.info("Omics 조합을 생성할 수 없습니다. 유효한 데이터가 부족합니다.")
-
-# 메인 함수
-def main():
-    if not st.session_state.logged_in:
-        login_page()
-    else:
-        # 사이드바 메뉴
-        sidebar_menu()
-        
-        # 현재 페이지에 맞는 컨텐츠 표시
-        if st.session_state.page == 'original_data':
-            original_data_page()
-        elif st.session_state.page == 'validation_check':
-            validation_check_page()
-        elif st.session_state.page == 'pivot_tables':
-            pivot_tables_page()
-        elif st.session_state.page == 'omics_summary':
-            omics_summary_page()
-        elif st.session_state.page == 'omics_combination':
-            omics_combination_page()
-        else:
-            original_data_page()  # 기본 페이지
-
-if __name__ == "__main__":
-    # main()운로드
-                            if st.button("해당 OmicsCombo 데이터 (엑셀) 다운로드", key="download_corea_excel"):
-                                # 엑셀 파일 생성
-                                output = BytesIO()
-                                
-                                # 원하는 컬럼만 정리해서 저장
-                                df_save = patient_data[['PatientID', 'Omics', 'Tissue', 'Visit', 'SampleID']].copy()
-                                df_save['Omics_Tissue'] = df_save['Omics'] + "__" + df_save['Tissue']
-                                df_save = df_save[['PatientID', 'Visit', 'Omics_Tissue', 'SampleID']]
-                                
-                                # Pivot 테이블 생성
-                                pivot_save = df_save.pivot_table(
-                                    index=['PatientID', 'Visit'],
-                                    columns='Omics_Tissue',
-                                    values='SampleID',
-                                    aggfunc='first'
-                                ).reset_index().fillna('')
-                                
-                                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                                    pivot_save.to_excel(writer, index=False)
-                                
-                                # 다운로드 링크 생성
-                                output.seek(0)
-                                b64 = base64.b64encode(output.read()).decode()
-                                filename = f"COREA_{re.sub(' ', '_', selected_combo)}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                                href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">엑셀 파일 다운로드 (클릭)</a>'
-                                st.markdown(href, unsafe_allow_html=True)
-                        else:
-                            st.info("해당 OmicsCombo를 가진 환자가 없습니다.")
-                else:
-                    st.info("COREA 프로젝트에 대한 Omics 조합이 없습니다.")
-            else:
-                st.info("Omics 조합을 생성할 수 없습니다. 유효한 데이터가 부족합니다.")
-        
-        # PRISMUK 기존 Omics 조합
-        with existing_tab3:
-            # Omics 조합 생성
-            omics_combo = create_omics_combo(valid_df)
-            
-            if omics_combo is not None:
-                # PRISMUK 데이터 필터링
-                prismuk_combo = omics_combo[omics_combo['Project'] == 'PRISMUK'][['OmicsCombo', 'PatientCount']]
-                
-                if len(prismuk_combo) > 0:
-                    st.dataframe(prismuk_combo, use_container_width=True)
-                    
-                    # 조합 선택
-                    selected_combo = st.selectbox(
-                        "OmicsCombo 선택:",
-                        options=prismuk_combo['OmicsCombo'].tolist(),
-                        key="prismuk_combo_selectbox"
-                    )
-                    
-                    if selected_combo:
-                        st.session_state.selected_omics_combo_prismuk = selected_combo
-                        
-                        # 선택된 OmicsCombo를 가진 환자들의 PatientID
-                        patients_with_combo = valid_df.groupby(['Project', 'PatientID']).apply(
-                            lambda x: ' + '.join(sorted(x['Omics'].unique()))
-                        ).reset_index().rename(columns={0: 'OmicsCombo'})
-                        
-                        relevant_patients = patients_with_combo[
-                            (patients_with_combo['Project'] == 'PRISMUK') & 
-                            (patients_with_combo['OmicsCombo'] == selected_combo)
-                        ]['PatientID'].tolist()
-                        
-                        if relevant_patients:
-                            # 해당 환자들의 데이터
-                            patient_data = valid_df[
-                                (valid_df['Project'] == 'PRISMUK') & 
-                                (valid_df['PatientID'].isin(relevant_patients))
-                            ].sort_values(['PatientID', 'Omics', 'Tissue', 'Visit'])
-                            
-                            # (Omics, Visit별) 샘플 수 계산
-                            sample_count = patient_data.groupby(['Omics', 'Tissue', 'Visit']).agg({
-                                'SampleID': 'nunique'
-                            }).reset_index().rename(columns={'SampleID': 'SampleCount'})
-                            
-                            # Pivot
-                            pivot_sample_count = sample_count.pivot_table(
-                                index=['Omics', 'Tissue'],
-                                columns='Visit',
-                                values='SampleCount',
-                                aggfunc='sum'
-                            ).reset_index().fillna(0)
-                            
-                            # 결과 표시
-                            st.markdown("---")
-                            st.markdown(f"### 선택된 OmicsCombo({selected_combo})에 속한 Patient들의 (Omics, Visit별) 샘플수")
-                            st.dataframe(pivot_sample_count, use_container_width=True)
-                            
-                            # 엑셀 다
-        
-        # PRISM 기존 Omics 조합
-        with existing_tab2:
-            # Omics 조합 생성
-            omics_combo = create_omics_combo(valid_df)
-            
-            if omics_combo is not None:
-                # PRISM 데이터 필터링
-                prism_combo = omics_combo[omics_combo['Project'] == 'PRISM'][['OmicsCombo', 'PatientCount']]
-                
-                if len(prism_combo) > 0:
-                    st.dataframe(prism_combo, use_container_width=True)
-                    
-                    # 조합 선택
-                    selected_combo = st.selectbox(
-                        "OmicsCombo 선택:",
-                        options=prism_combo['OmicsCombo'].tolist(),
-                        key="prism_combo_selectbox"
-                    )
-                    
-                    if selected_combo:
-                        st.session_state.selected_omics_combo_prism = selected_combo
-                        
-                        # 선택된 OmicsCombo를 가진 환자들의 PatientID
-                        patients_with_combo = valid_df.groupby(['Project', 'PatientID']).apply(
-                            lambda x: ' + '.join(sorted(x['Omics'].unique()))
-                        ).reset_index().rename(columns={0: 'OmicsCombo'})
-                        
-                        relevant_patients = patients_with_combo[
-                            (patients_with_combo['Project'] == 'PRISM') & 
-                            (patients_with_combo['OmicsCombo'] == selected_combo)
-                        ]['PatientID'].tolist()
-                        
-                        if relevant_patients:
-                            # 해당 환자들의 데이터
-                            patient_data = valid_df[
-                                (valid_df['Project'] == 'PRISM') & 
-                                (valid_df['PatientID'].isin(relevant_patients))
-                            ].sort_values(['PatientID', 'Omics', 'Tissue', 'Visit'])
-                            
-                            # (Omics, Visit별) 샘플 수 계산
-                            sample_count = patient_data.groupby(['Omics', 'Tissue', 'Visit']).agg({
-                                'SampleID': 'nunique'
-                            }).reset_index().rename(columns={'SampleID': 'SampleCount'})
-                            
-                            # Pivot
-                            pivot_sample_count = sample_count.pivot_table(
-                                index=['Omics', 'Tissue'],
-                                columns='Visit',
-                                values='SampleCount',
-                                aggfunc='sum'
-                            ).reset_index().fillna(0)
-                            
-                            # 결과 표시
-                            st.markdown("---")
-                            st.markdown(f"### 선택된 OmicsCombo({selected_combo})에 속한 Patient들의 (Omics, Visit별) 샘플수")
-                            st.dataframe(pivot_sample_count, use_container_width=True)
-                            
-                            # 엑셀 다운로드
-                            if st.button("해당 OmicsCombo 데이터 (엑셀) 다운로드", key="download_prism_excel"):
-                                # 엑셀 파일 생성
-                                output = BytesIO()
-                                
-                                # 원하는 컬럼만 정리해서 저장
-                                df_save = patient_data[['PatientID', 'Omics', 'Tissue', 'Visit', 'SampleID']].copy()
-                                df_save['Omics_Tissue'] = df_save['Omics'] + "__" + df_save['Tissue']
-                                df_save = df_save[['PatientID', 'Visit', 'Omics_Tissue', 'SampleID']]
-                                
-                                # Pivot 테이블 생성
-                                pivot_save = df_save.pivot_table(
-                                    index=['PatientID', 'Visit'],
-                                    columns='Omics_Tissue',
-                                    values='SampleID',
-                                    aggfunc='first'
-                                ).reset_index().fillna('')
-                                
-                                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                                    pivot_save.to_excel(writer, index=False)
-                                
-                                # 다운로드 링크 생성
-                                output.seek(0)
-                                b64 = base64.b64encode(output.read()).decode()
-                                filename = f"PRISM_{re.sub(' ', '_', selected_combo)}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                                href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">엑셀 파일 다운로드 (클릭)</a>'
-                                st.markdown(href, unsafe_allow_html=True)
-                        else:
-                            st.info("해당 OmicsCombo를 가진 환자가 없습니다.")
-                else:
-                    st.info("PRISM 프로젝트에 대한 Omics 조합이 없습니다.")
-            else:
-                st.info("Omics 조합을 생성할 수 없습니다. 유효한 데이터가 부족합니다.")
-        
-        # PRISMUK 계층적 선택
-        with hierarchy_tab3:
-            col1, col2 = st.columns([1, 2])
-            
-            with col1:
-                st.markdown("### Omics 선택")
-                
-                # 버튼 행 추가
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("모두 선택", key="select_all_prismuk"):
-                        # 모든 Omics 선택
-                        all_omics = valid_df[valid_df['Project'] == 'PRISMUK']['Omics'].unique().tolist()
-                        st.session_state.hierarchy_values['prismuk_omics'] = all_omics
-                        
-                        # 모든 Tissues 선택
-                        all_tissues = []
-                        all_visits = {}
-                        
-                        for omics in all_omics:
-                            tissues = valid_df[(valid_df['Project'] == 'PRISMUK') & (valid_df['Omics'] == omics)]['Tissue'].unique().tolist()
-                            
-                            for tissue in tissues:
-                                omics_tissue_key = f"{omics}___{tissue}"
-                                all_tissues.append(omics_tissue_key)
-                                all_visits[omics_tissue_key] = valid_visits
-                        
-                        st.session_state.hierarchy_values['prismuk_tissues'] = all_tissues
-                        st.session_state.hierarchy_values['prismuk_visits'] = all_visits
-                        
-                        st.experimental_rerun()
-                
-                with col_btn2:
-                    if st.button("모두 해제", key="clear_all_prismuk"):
-                        st.session_state.hierarchy_values['prismuk_omics'] = []
-                        st.session_state.hierarchy_values['prismuk_tissues'] = []
-                        st.session_state.hierarchy_values['prismuk_visits'] = {}
-                        st.experimental_rerun()
-                
-                st.markdown("---")
-                
-                # Omics 목록 가져오기
-                omics_list = valid_df[valid_df['Project'] == 'PRISMUK']['Omics'].unique().tolist()
-                omics_list.sort()
-                
-                # 각 Omics에 대한 체크박스 표시
-                for omics in omics_list:
-                    is_selected = omics in st.session_state.hierarchy_values['prismuk_omics']
-                    
-                    if st.checkbox(omics, value=is_selected, key=f"prismuk_omics_{omics}"):
-                        if omics not in st.session_state.hierarchy_values['prismuk_omics']:
-                            st.session_state.hierarchy_values['prismuk_omics'].append(omics)
-                    else:
-                        if omics in st.session_state.hierarchy_values['prismuk_omics']:
-                            st.session_state.hierarchy_values['prismuk_omics'].remove(omics)
-                            
-                            # Tissues 및 Visits 업데이트
-                            updated_tissues = []
-                            updated_visits = {}
-                            
-                            for tissue_key in st.session_state.hierarchy_values['prismuk_tissues']:
-                                if not tissue_key.startswith(f"{omics}___"):
-                                    updated_tissues.append(tissue_key)
-                                    if tissue_key in st.session_state.hierarchy_values['prismuk_visits']:
-                                        updated_visits[tissue_key] = st.session_state.hierarchy_values['prismuk_visits'][tissue_key]
-                            
-                            st.session_state.hierarchy_values['prismuk_tissues'] = updated_tissues
-                            st.session_state.hierarchy_values['prismuk_visits'] = updated_visits
-                    
-                    # Omics가 선택된 경우, 해당 Omics의 Tissue 체크박스 표시
-                    if omics in st.session_state.hierarchy_values['prismuk_omics']:
-                        tissues = valid_df[(valid_df['Project'] == 'PRISMUK') & (valid_df['Omics'] == omics)]['Tissue'].unique().tolist()
-                        tissues.sort()
-                        
-                        st.markdown(f"<div class='hierarchy-item'>", unsafe_allow_html=True)
-                        
-                        for tissue in tissues:
-                            omics_tissue_key = f"{omics}___{tissue}"
-                            is_tissue_selected = omics_tissue_key in st.session_state.hierarchy_values['prismuk_tissues']
-                            
-                            if st.checkbox(tissue, value=is_tissue_selected, key=f"prismuk_tissue_{omics}_{tissue}"):
-                                if omics_tissue_key not in st.session_state.hierarchy_values['prismuk_tissues']:
-                                    st.session_state.hierarchy_values['prismuk_tissues'].append(omics_tissue_key)
-                                    st.session_state.hierarchy_values['prismuk_visits'][omics_tissue_key] = valid_visits.copy()
-                            else:
-                                if omics_tissue_key in st.session_state.hierarchy_values['prismuk_tissues']:
-                                    st.session_state.hierarchy_values['prismuk_tissues'].remove(omics_tissue_key)
-                                    if omics_tissue_key in st.session_state.hierarchy_values['prismuk_visits']:
-                                        del st.session_state.hierarchy_values['prismuk_visits'][omics_tissue_key]
-                            
-                            # Tissue가 선택된 경우, 해당 Tissue의 Visit 체크박스 표시
-                            if omics_tissue_key in st.session_state.hierarchy_values['prismuk_tissues']:
-                                st.markdown(f"<div class='hierarchy-item'>", unsafe_allow_html=True)
-                                
-                                # 각 Visit에 대한 체크박스 표시
-                                selected_visits = st.multiselect(
-                                    "Visit:",
-                                    options=valid_visits,
-                                    default=st.session_state.hierarchy_values['prismuk_visits'].get(omics_tissue_key, valid_visits),
-                                    key=f"prismuk_visits_{omics}_{tissue}"
-                                )
-                                
-                                st.session_state.hierarchy_values['prismuk_visits'][omics_tissue_key] = selected_visits
-                                
-                                st.markdown("</div>", unsafe_allow_html=True)
-                        
-                        st.markdown("</div>", unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown("### 선택된 Omics 조합 결과")
-                
-                # 선택된 Omics, Tissue, Visit에 따른 데이터 필터링
-                filtered_data = get_hierarchy_filtered_data(valid_df, 'PRISMUK', st.session_state.hierarchy_values)
-                
-                if filtered_data is not None and len(filtered_data) > 0:
-                    # 요약 정보 표시
-                    patient_count = filtered_data['PatientID'].nunique()
-                    sample_count = filtered_data['SampleID'].nunique()
-                    
-                    st.markdown(f"**선택된 조건에 맞는 환자 수:** {patient_count}, **샘플 수:** {sample_count}")
-                    
-                    # 계층적 결과 요약 생성
-                    hierarchy_summary = create_hierarchy_summary(filtered_data)
-                    
-                    if hierarchy_summary is not None:
-                        st.dataframe(hierarchy_summary, use_container_width=True)
-                    
-                    # 엑셀 다운로드
-                    st.markdown("---")
-                    
-                    if st.button("선택된 Omics 샘플 엑셀 다운로드", key="hierarchy_download_prismuk"):
-                        # 여러 시트가 있는 Excel 파일 생성
-                        output = BytesIO()
-                        
-                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                            # 시트1: 요약 정보
-                            summary_data = filtered_data.groupby(['Omics', 'Tissue', 'Visit']).agg({
-                                'PatientID': 'nunique',
-                                'SampleID': 'nunique'
-                            }).reset_index().rename(columns={'PatientID': 'PatientCount', 'SampleID': 'SampleCount'})
-                            
-                            summary_data.to_excel(writer, sheet_name="조합별 요약", index=False)
-                            
-                            # 시트2: 환자별 샘플 정보
-                            patient_samples = filtered_data[['PatientID', 'Visit', 'Omics', 'Tissue', 'SampleID']].sort_values(
-                                by=['PatientID', 'Visit', 'Omics', 'Tissue']
-                            )
-                            
-                            patient_samples.to_excel(writer, sheet_name="환자별 샘플", index=False)
-                            
-                            # 시트3: 환자-방문 조합별 샘플 수
-                            patient_visit_summary = filtered_data.groupby(['PatientID', 'Visit']).agg({
-                                'Omics': 'nunique',
-                                'Tissue': 'nunique',
-                                'SampleID': 'nunique'
-                            }).reset_index().rename(columns={
-                                'Omics': 'OmicsCount',
-                                'Tissue': 'TissueCount',
-                                'SampleID': 'SampleCount'
-                            })
-                            
-                            patient_visit_summary.to_excel(writer, sheet_name="환자별 방문별 샘플 수", index=False)
-                            
-                            # 시트4: 전체 선택 데이터
-                            filtered_data.to_excel(writer, sheet_name="전체 데이터", index=False)
-                        
-                        # 다운로드 링크 생성
-                        output.seek(0)
-                        b64 = base64.b64encode(output.read()).decode()
-                        filename = f"PRISMUK_Selected_Omics_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                        href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">엑셀 파일 다운로드 (클릭)</a>'
-                        st.markdown(href, unsafe_allow_html=True)
-                else:
-                    st.info("선택된 항목이 없거나 조건에 맞는 데이터가 없습니다.")().rename(columns={'PatientID': 'PatientCount', 'SampleID': 'SampleCount'})
-                            
-                            summary_data.to_excel(writer, sheet_name="조합별 요약", index=False)
-                            
-                            # 시트2: 환자별 샘플 정보
-                            patient_samples = filtered_data[['PatientID', 'Visit', 'Omics', 'Tissue', 'SampleID']].sort_values(
-                                by=['PatientID', 'Visit', 'Omics', 'Tissue']
-                            )
-                            
-                            patient_samples.to_excel(writer, sheet_name="환자별 샘플", index=False)
-                            
-                            # 시트3: 환자-방문 조합별 샘플 수
-                            patient_visit_summary = filtered_data.groupby(['PatientID', 'Visit']).agg({
-                                'Omics': 'nunique',
-                                'Tissue': 'nunique',
-                                'SampleID': 'nunique'
-                            }).reset_index().rename(columns={
-                                'Omics': 'OmicsCount',
-                                'Tissue': 'TissueCount',
-                                'SampleID': 'SampleCount'
-                            })
-                            
-                            patient_visit_summary.to_excel(writer, sheet_name="환자별 방문별 샘플 수", index=False)
-                            
-                            # 시트4: 전체 선택 데이터
-                            filtered_data.to_excel(writer, sheet_name="전체 데이터", index=False)
-                        
-                        # 다운로드 링크 생성
-                        output.seek(0)
-                        b64 = base64.b64encode(output.read()).decode()
                         filename = f"COREA_Selected_Omics_{datetime.now().strftime('%Y%m%d')}.xlsx"
                         href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">엑셀 파일 다운로드 (클릭)</a>'
                         st.markdown(href, unsafe_allow_html=True)
@@ -1493,39 +1526,6 @@ if __name__ == "__main__":
                                 st.markdown("</div>", unsafe_allow_html=True)
                         
                         st.markdown("</div>", unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown("### 선택된 Omics 조합 결과")
-                
-                # 선택된 Omics, Tissue, Visit에 따른 데이터 필터링
-                filtered_data = get_hierarchy_filtered_data(valid_df, 'PRISM', st.session_state.hierarchy_values)
-                
-                if filtered_data is not None and len(filtered_data) > 0:
-                    # 요약 정보 표시
-                    patient_count = filtered_data['PatientID'].nunique()
-                    sample_count = filtered_data['SampleID'].nunique()
-                    
-                    st.markdown(f"**선택된 조건에 맞는 환자 수:** {patient_count}, **샘플 수:** {sample_count}")
-                    
-                    # 계층적 결과 요약 생성
-                    hierarchy_summary = create_hierarchy_summary(filtered_data)
-                    
-                    if hierarchy_summary is not None:
-                        st.dataframe(hierarchy_summary, use_container_width=True)
-                    
-                    # 엑셀 다운로드
-                    st.markdown("---")
-                    
-                    if st.button("선택된 Omics 샘플 엑셀 다운로드", key="hierarchy_download_prism"):
-                        # 여러 시트가 있는 Excel 파일 생성
-                        output = BytesIO()
-                        
-                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                            # 시트1: 요약 정보
-                            summary_data = filtered_data.groupby(['Omics', 'Tissue', 'Visit']).agg({
-                                'PatientID': 'nunique',
-                                'SampleID': 'nunique'
-                            }).reset_index
 
 # 4. Omics 현황 페이지
 def omics_summary_page():
