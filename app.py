@@ -993,7 +993,7 @@ def main():
             original_data_page()  # 기본 페이지
 
 if __name__ == "__main__":
-    main()운로드
+    # main()운로드
                             if st.button("해당 OmicsCombo 데이터 (엑셀) 다운로드", key="download_corea_excel"):
                                 # 엑셀 파일 생성
                                 output = BytesIO()
