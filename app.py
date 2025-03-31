@@ -768,14 +768,16 @@ def omics_combination_page():
                                 all_visits[key_ot] = valid_visits
                         st.session_state.hierarchy_values['corea_tissues'] = all_tissues
                         st.session_state.hierarchy_values['corea_visits'] = all_visits
-                        st.experimental_rerun()
+                        # st.experimental_rerun()
+                        st.stop()
                 
                 with col_btnB:
                     if st.button("모두 해제", key="clear_all_corea"):
                         st.session_state.hierarchy_values['corea_omics'] = []
                         st.session_state.hierarchy_values['corea_tissues'] = []
                         st.session_state.hierarchy_values['corea_visits'] = {}
-                        st.experimental_rerun()
+                        # st.experimental_rerun()
+                        st.stop()
                 
                 st.markdown("---")
                 
@@ -913,14 +915,16 @@ def omics_combination_page():
                                 all_visits[key_ot] = valid_visits
                         st.session_state.hierarchy_values['prism_tissues'] = all_tissues
                         st.session_state.hierarchy_values['prism_visits'] = all_visits
-                        st.experimental_rerun()
+                        # st.experimental_rerun()
+                        st.stop()
                 
                 with col_btnB:
                     if st.button("모두 해제", key="clear_all_prism"):
                         st.session_state.hierarchy_values['prism_omics'] = []
                         st.session_state.hierarchy_values['prism_tissues'] = []
                         st.session_state.hierarchy_values['prism_visits'] = {}
-                        st.experimental_rerun()
+                        # st.experimental_rerun()
+                        st.stop()
                 
                 st.markdown("---")
                 
@@ -1054,14 +1058,16 @@ def omics_combination_page():
                                 all_visits[key_ot] = valid_visits
                         st.session_state.hierarchy_values['prismuk_tissues'] = all_tissues
                         st.session_state.hierarchy_values['prismuk_visits'] = all_visits
-                        st.experimental_rerun()
+                        # st.experimental_rerun()
+                        st.stop()
                 
                 with col_btnB:
                     if st.button("모두 해제", key="clear_all_prismuk"):
                         st.session_state.hierarchy_values['prismuk_omics'] = []
                         st.session_state.hierarchy_values['prismuk_tissues'] = []
                         st.session_state.hierarchy_values['prismuk_visits'] = {}
-                        st.experimental_rerun()
+                        # st.experimental_rerun()
+                        st.stop()
                 
                 st.markdown("---")
                 
@@ -1404,7 +1410,8 @@ def sidebar_menu():
     if st.sidebar.button("로그아웃", key="logout_btn", type="primary"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
-        st.experimental_rerun()
+        # st.experimental_rerun()
+        st.stop()
     
     st.sidebar.markdown("---")
     
@@ -1436,7 +1443,8 @@ def sidebar_menu():
     for menu_title, page_name in menu_options.items():
         if st.sidebar.button(menu_title, key=f"menu_{page_name}"):
             st.session_state.page = page_name
-            st.experimental_rerun()
+            # st.experimental_rerun()
+            st.stop()
 
 def main():
     """
