@@ -804,10 +804,10 @@ def main():
     else:
         main_app()
 
-if __name__ == "__main__":
-    main()를 통과한 데이터가 필요합니다.")
+   if st.session_state.valid_data is None or st.session_state.valid_data.empty:
+        st.info("유효한 데이터가 없습니다. 파일을 업로드하고 유효성 검사를 통과한 데이터가 필요합니다.")
         return
-    
+       
     tab1, tab2, tab3 = st.tabs(["COREA", "PRISM", "PRISMUK"])
     
     with tab1:
