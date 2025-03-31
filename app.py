@@ -417,7 +417,7 @@ def login_page():
                 st.session_state.user = username
                 st.session_state.permissions = users[username]['permissions']
                 st.session_state.page = 'original_data'
-                st.experimental_rerun()
+                st.stop()
             else:
                 st.error("사용자 이름 또는 비밀번호가 올바르지 않습니다.")
 
