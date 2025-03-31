@@ -205,19 +205,31 @@ def get_invalid_data(df):
     return invalid_visit, invalid_omics_tissue, invalid_project, df_duplicate
 
 def create_pivot_table(df, project):
+    """
+    - (PatientID, Omics_Tissue)를 피벗하여 SampleID 목록을 표시
+    - fillna('') 시도 시 Categorical에서 오류가 생기면 astype(str)로 우선 변환
+    """
     if df is None:
         return None
-    project_df = df[df['Project'] == project].copy()
-    pivot_df = project_df.groupby(['PatientID', 'Visit', 'Omics_Tissue']).agg({
-        'SampleID': lambda x: ', '.join(x)
-    }).reset_index()
     
+    project_df = df[df['Project'] == project].copy()
+    
+    # (PatientID, Visit, Omics_Tissue) 기준으로 SampleID 문자열 병합
+    pivot_df = project_df.groupby(['PatientID', 'Visit', 'Omics_Tissue']).agg(
+        {'SampleID': lambda x: ', '.join(x)}
+    ).reset_index()
+
+    # pivot
     pivot_table = pivot_df.pivot_table(
         index=['PatientID', 'Visit'],
         columns='Omics_Tissue',
         values='SampleID',
         aggfunc='first'
-    ).reset_index().fillna('')
+    )
+    
+    # 피벗 결과에서 fillna('')로 변환하기 전에 문자열 형식으로 변경
+    pivot_table = pivot_table.astype(str).fillna('')  # 모든 셀을 문자열로
+    pivot_table = pivot_table.reset_index()           # index(=PatientID, Visit) 열 복귀
     
     return pivot_table
 
@@ -251,6 +263,57 @@ def create_omics_combo(df):
     combo_count = combo_count.sort_values(['Project', 'PatientCount'], ascending=[True, False])
     return combo_count
 
+def filter_patients_by_hierarchy(df, project, hierarchy_values):
+    """
+    - hierarchy_values 구조를 기반으로 Omics->Tissue 체크 상태를 해석해서
+      해당 Omics *모두*를 갖는 환자만 필터
+    - Tissue 체크가 없으면 해당 Omics의 전체 Tissue
+    """
+    project_key = project.lower()
+    selected_omics = hierarchy_values[f"{project_key}_omics"]  # Omics 리스트
+    selected_otkeys = hierarchy_values[f"{project_key}_tissues"]  # "Omics___Tissue"
+    
+    # Omics 하나도 없으면 결과 없음
+    if not selected_omics:
+        return pd.DataFrame()
+    
+    sub = df[df['Project'] == project].copy()
+    if len(sub) == 0:
+        return pd.DataFrame()
+    
+    # 환자를 Omics별로 필터링하되, Tissue 체크는 Omics별로 "Omics___Tissue" key가 있으면 그 Tissue만
+    # => 환자가 전부(AND) 만족해야 하므로 Omics별 환자집합을 순차적으로 교집합
+    final_patients = None
+    
+    for omics in selected_omics:
+        # 이 Omics에 대해 체크된 Tissue 목록
+        tlist = []
+        for ot in selected_otkeys:
+            if ot.startswith(f"{omics}___"):
+                tlist.append(ot.split("___", 1)[1])  # Tissue만
+        # Tissue가 하나도 체크 안됐다면 => 해당 Omics 전체 Tissue 허용
+        if not tlist:
+            df_omics = sub[sub['Omics'] == omics].copy()
+        else:
+            df_omics = sub[(sub['Omics'] == omics) & (sub['Tissue'].isin(tlist))].copy()
+        
+        # 이 Omics를 가진 환자집합
+        patients_omics = set(df_omics['PatientID'].unique())
+        
+        if final_patients is None:
+            # 첫 Omics
+            final_patients = patients_omics
+        else:
+            # 교집합
+            final_patients = final_patients.intersection(patients_omics)
+    
+    # 교집합 결과가 없다면 빈 DF
+    if not final_patients:
+        return pd.DataFrame()
+    
+    # 최종 환자들
+    return sub[sub['PatientID'].isin(final_patients)].copy()
+    
 def get_patients_that_have_all_selected_omics(df, project, selected_omics, selected_tissues):
     """
     - project 내 데이터에서 Tissue가 selected_tissues(중 하나)인 것만 추출(만약 tissue 선택이 비어있으면 전체 Tissue)
@@ -576,11 +639,12 @@ def omics_summary_page():
 # ---- [중요] 새로 개선된 Omics 조합 페이지 ----
 def omics_combination_page():
     """
-    1) 사용자 지정 Omics/Tissue 선택 → 해당 Omics 전부(교집합)를 만족하는 환자 목록
-    2) 기존 Omics 조합 (이전처럼 유지)
+    Omics + Tissue를 계층적 체크박스로 선택 (방문은 없음),
+    선택된 모든 Omics를 가지고 있는 환자만 필터(AND 교집합).
     """
-    st.markdown('<div class="main-header">Project별 Omics 조합</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">Project별 Omics 및 Tissue 계층별 선택</div>', unsafe_allow_html=True)
     df = load_data()
+    
     if df is None:
         st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
         return
@@ -590,146 +654,244 @@ def omics_combination_page():
         st.warning("유효한 데이터가 없습니다. 데이터 유효성을 확인해주세요.")
         return
     
-    tab1, tab2 = st.tabs(["사용자 지정 Omics 선택", "기존 Omics 조합"])
+    # 탭1: 계층적 선택 / 탭2: 기존 Omics 조합
+    tab1, tab2 = st.tabs(["계층적 Omics 선택", "기존 Omics 조합"])
     
-    # ------------------------
-    # (1) 사용자 지정 Omics/Tissue 선택
-    # ------------------------
+    # -----------------------------
+    # (1) 계층적 Omics 선택(체크박스)
+    # -----------------------------
     with tab1:
-        st.markdown("#### 원하는 Omics와 Tissue(옵션)를 선택하면, 해당 Omics를 **모두** 보유한 환자들만 필터링하여 아래에서 보여줍니다.")
-        st.markdown("*Visit은 표시하지 않으며, 전체 V1~V5 중 존재하는 샘플들을 그대로 보여줍니다.*")
-        st.write("---")
+        st.write("아래에서 Omics와 Tissue를 계층적으로 체크하여, **모두**(Omics 기준) 만족하는 환자를 필터링합니다.")
         
-        # 세 개의 탭 (COREA, PRISM, PRISMUK) => 각 프로젝트별 Omics/Tissue 선택
-        sub_tab1, sub_tab2, sub_tab3 = st.tabs(["COREA", "PRISM", "PRISMUK"])
+        # 서브 탭 3개 (COREA / PRISM / PRISMUK)
+        hierarchy_tab1, hierarchy_tab2, hierarchy_tab3 = st.tabs(["COREA", "PRISM", "PRISMUK"])
         
-        # --- [COREA] ---
-        with sub_tab1:
-            st.subheader("COREA - 사용자 정의 Omics/Tissue 선택")
+        # ------ [COREA] ------
+        with hierarchy_tab1:
+            st.subheader("COREA - Omics→Tissue 선택")
+            col1, col2 = st.columns([1, 1])
             
-            # 각 프로젝트에 존재하는 Omics, Tissue만 리스트
-            corea_omics_all = sorted(valid_df[valid_df['Project'] == 'COREA']['Omics'].unique().tolist())
-            corea_tissue_all = sorted(valid_df[valid_df['Project'] == 'COREA']['Tissue'].unique().tolist())
-            
-            # Omics 선택 (멀티셀렉트 - 가로 확장)
-            selected_omics = st.multiselect(
-                "Omics 선택(복수 가능):",
-                options=corea_omics_all,
-                default=[],  # 초기선택 없음
-                help="모든 Omics를 반드시 포함하는 환자만 추려냅니다."
-            )
-            
-            # Tissue 선택(멀티셀렉트)
-            selected_tissues = st.multiselect(
-                "Tissue 선택(옵션, 복수 가능):",
-                options=corea_tissue_all,
-                default=[],
-                help="Tissue를 지정하면 해당 Tissue 내 샘플만 고려합니다. (비우면 전체 Tissue)"
-            )
-            
-            # 결과
-            filtered_data = get_patients_that_have_all_selected_omics(
-                df=valid_df, project='COREA',
-                selected_omics=selected_omics,
-                selected_tissues=selected_tissues
-            )
-            
-            st.markdown("### 선택된 Omics/Tissue를 모두 만족하는 환자 목록")
-            if filtered_data is not None and len(filtered_data) > 0:
-                st.dataframe(filtered_data, use_container_width=True)
+            with col1:
+                st.markdown("#### Omics 선택")
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("모두 선택", key="select_all_corea"):
+                        all_omics = sorted(valid_df[valid_df['Project'] == 'COREA']['Omics'].unique().tolist())
+                        st.session_state.hierarchy_values['corea_omics'] = all_omics
+                        
+                        # 해당 Omics에 속한 Tissue 전부 선택
+                        all_tissues = []
+                        for omics in all_omics:
+                            sub_tissues = valid_df[
+                                (valid_df['Project'] == 'COREA') & (valid_df['Omics'] == omics)
+                            ]['Tissue'].unique().tolist()
+                            for tissue in sub_tissues:
+                                all_tissues.append(f"{omics}___{tissue}")
+                        
+                        st.session_state.hierarchy_values['corea_tissues'] = all_tissues
                 
-                # 엑셀 다운로드
-                excel_filename = f"COREA_customOmics_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                if st.button("이 결과 엑셀 다운로드", key="corea_custom_combo_btn"):
-                    output = BytesIO()
-                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                        filtered_data.to_excel(writer, sheet_name="FilteredData", index=False)
-                    output.seek(0)
-                    b64 = base64.b64encode(output.read()).decode()
-                    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{excel_filename}">엑셀 파일 다운로드 (클릭)</a>'
-                    st.markdown(href, unsafe_allow_html=True)
-            else:
-                st.info("해당 Omics/Tissue 조합을 '모두' 만족하는 환자가 없습니다.")
-        
-        # --- [PRISM] ---
-        with sub_tab2:
-            st.subheader("PRISM - 사용자 정의 Omics/Tissue 선택")
-            
-            prism_omics_all = sorted(valid_df[valid_df['Project'] == 'PRISM']['Omics'].unique().tolist())
-            prism_tissue_all = sorted(valid_df[valid_df['Project'] == 'PRISM']['Tissue'].unique().tolist())
-            
-            selected_omics = st.multiselect(
-                "Omics 선택(복수 가능):",
-                options=prism_omics_all,
-                default=[]
-            )
-            selected_tissues = st.multiselect(
-                "Tissue 선택(옵션, 복수 가능):",
-                options=prism_tissue_all,
-                default=[]
-            )
-            
-            filtered_data = get_patients_that_have_all_selected_omics(
-                df=valid_df, project='PRISM',
-                selected_omics=selected_omics,
-                selected_tissues=selected_tissues
-            )
-            
-            st.markdown("### 선택된 Omics/Tissue를 모두 만족하는 환자 목록")
-            if filtered_data is not None and len(filtered_data) > 0:
-                st.dataframe(filtered_data, use_container_width=True)
+                with col_btn2:
+                    if st.button("모두 해제", key="clear_all_corea"):
+                        st.session_state.hierarchy_values['corea_omics'] = []
+                        st.session_state.hierarchy_values['corea_tissues'] = []
                 
-                excel_filename = f"PRISM_customOmics_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                if st.button("이 결과 엑셀 다운로드", key="prism_custom_combo_btn"):
-                    output = BytesIO()
-                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                        filtered_data.to_excel(writer, sheet_name="FilteredData", index=False)
-                    output.seek(0)
-                    b64 = base64.b64encode(output.read()).decode()
-                    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{excel_filename}">엑셀 파일 다운로드 (클릭)</a>'
-                    st.markdown(href, unsafe_allow_html=True)
-            else:
-                st.info("해당 Omics/Tissue 조합을 '모두' 만족하는 환자가 없습니다.")
-        
-        # --- [PRISMUK] ---
-        with sub_tab3:
-            st.subheader("PRISMUK - 사용자 정의 Omics/Tissue 선택")
-            
-            prismuk_omics_all = sorted(valid_df[valid_df['Project'] == 'PRISMUK']['Omics'].unique().tolist())
-            prismuk_tissue_all = sorted(valid_df[valid_df['Project'] == 'PRISMUK']['Tissue'].unique().tolist())
-            
-            selected_omics = st.multiselect(
-                "Omics 선택(복수 가능):",
-                options=prismuk_omics_all,
-                default=[]
-            )
-            selected_tissues = st.multiselect(
-                "Tissue 선택(옵션, 복수 가능):",
-                options=prismuk_tissue_all,
-                default=[]
-            )
-            
-            filtered_data = get_patients_that_have_all_selected_omics(
-                df=valid_df, project='PRISMUK',
-                selected_omics=selected_omics,
-                selected_tissues=selected_tissues
-            )
-            
-            st.markdown("### 선택된 Omics/Tissue를 모두 만족하는 환자 목록")
-            if filtered_data is not None and len(filtered_data) > 0:
-                st.dataframe(filtered_data, use_container_width=True)
+                st.write("---")
                 
-                excel_filename = f"PRISMUK_customOmics_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                if st.button("이 결과 엑셀 다운로드", key="prismuk_custom_combo_btn"):
-                    output = BytesIO()
-                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                        filtered_data.to_excel(writer, sheet_name="FilteredData", index=False)
-                    output.seek(0)
-                    b64 = base64.b64encode(output.read()).decode()
-                    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{excel_filename}">엑셀 파일 다운로드 (클릭)</a>'
-                    st.markdown(href, unsafe_allow_html=True)
+                # Omics 목록
+                omics_list = sorted(valid_df[valid_df['Project'] == 'COREA']['Omics'].unique().tolist())
+                for omics in omics_list:
+                    is_omics_selected = (omics in st.session_state.hierarchy_values['corea_omics'])
+                    if st.checkbox(omics, value=is_omics_selected, key=f"corea_omics_{omics}"):
+                        # 체크됨 → Omics 목록에 없으면 추가
+                        if omics not in st.session_state.hierarchy_values['corea_omics']:
+                            st.session_state.hierarchy_values['corea_omics'].append(omics)
+                    else:
+                        # 체크 해제
+                        if omics in st.session_state.hierarchy_values['corea_omics']:
+                            st.session_state.hierarchy_values['corea_omics'].remove(omics)
+                            
+                            # Tissue에서도 제거
+                            updated_tissues = []
+                            for ot in st.session_state.hierarchy_values['corea_tissues']:
+                                if not ot.startswith(f"{omics}___"):
+                                    updated_tissues.append(ot)
+                            st.session_state.hierarchy_values['corea_tissues'] = updated_tissues
+                    
+                    # Omics가 체크되었으면 아래 Tissue들 체크박스
+                    if omics in st.session_state.hierarchy_values['corea_omics']:
+                        sub_tissues = sorted(valid_df[
+                            (valid_df['Project'] == 'COREA') & (valid_df['Omics'] == omics)
+                        ]['Tissue'].unique().tolist())
+                        
+                        st.markdown(f"##### {omics}에 대한 Tissue:")
+                        st.markdown("<div class='hierarchy-item'>", unsafe_allow_html=True)
+                        for tissue in sub_tissues:
+                            ot_key = f"{omics}___{tissue}"
+                            is_tissue_selected = (ot_key in st.session_state.hierarchy_values['corea_tissues'])
+                            if st.checkbox(tissue, value=is_tissue_selected, key=f"corea_tissue_{omics}_{tissue}"):
+                                if ot_key not in st.session_state.hierarchy_values['corea_tissues']:
+                                    st.session_state.hierarchy_values['corea_tissues'].append(ot_key)
+                            else:
+                                if ot_key in st.session_state.hierarchy_values['corea_tissues']:
+                                    st.session_state.hierarchy_values['corea_tissues'].remove(ot_key)
+                        st.markdown("</div>", unsafe_allow_html=True)
+            
+            # 오른쪽(결과는 아래에 표시하므로 비워두거나 안내문)
+            with col2:
+                st.info("Omics와 Tissue를 선택하세요. 아래에 결과가 표시됩니다.")
+            
+            st.write("---")
+            # 최종 필터 결과 아래쪽에 표시
+            filtered_data = filter_patients_by_hierarchy(valid_df, 'COREA', st.session_state.hierarchy_values)
+            st.markdown("### 선택 조건에 부합하는 COREA 환자/샘플")
+            if len(filtered_data) > 0:
+                st.dataframe(filtered_data, use_container_width=True)
             else:
-                st.info("해당 Omics/Tissue 조합을 '모두' 만족하는 환자가 없습니다.")
+                st.info("해당 조건에 맞는 COREA 환자가 없습니다.")
+        
+        # ------ [PRISM] ------
+        with hierarchy_tab2:
+            st.subheader("PRISM - Omics→Tissue 선택")
+            col1, col2 = st.columns([1,1])
+            with col1:
+                st.markdown("#### Omics 선택")
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("모두 선택", key="select_all_prism"):
+                        all_omics = sorted(valid_df[valid_df['Project'] == 'PRISM']['Omics'].unique().tolist())
+                        st.session_state.hierarchy_values['prism_omics'] = all_omics
+                        
+                        all_tissues = []
+                        for omics in all_omics:
+                            sub_tissues = valid_df[
+                                (valid_df['Project'] == 'PRISM') & (valid_df['Omics'] == omics)
+                            ]['Tissue'].unique().tolist()
+                            for tissue in sub_tissues:
+                                all_tissues.append(f"{omics}___{tissue}")
+                        st.session_state.hierarchy_values['prism_tissues'] = all_tissues
+                
+                with col_btn2:
+                    if st.button("모두 해제", key="clear_all_prism"):
+                        st.session_state.hierarchy_values['prism_omics'] = []
+                        st.session_state.hierarchy_values['prism_tissues'] = []
+                
+                st.write("---")
+                
+                omics_list = sorted(valid_df[valid_df['Project'] == 'PRISM']['Omics'].unique().tolist())
+                for omics in omics_list:
+                    is_omics_selected = (omics in st.session_state.hierarchy_values['prism_omics'])
+                    if st.checkbox(omics, value=is_omics_selected, key=f"prism_omics_{omics}"):
+                        if omics not in st.session_state.hierarchy_values['prism_omics']:
+                            st.session_state.hierarchy_values['prism_omics'].append(omics)
+                    else:
+                        if omics in st.session_state.hierarchy_values['prism_omics']:
+                            st.session_state.hierarchy_values['prism_omics'].remove(omics)
+                            updated_tissues = []
+                            for ot in st.session_state.hierarchy_values['prism_tissues']:
+                                if not ot.startswith(f"{omics}___"):
+                                    updated_tissues.append(ot)
+                            st.session_state.hierarchy_values['prism_tissues'] = updated_tissues
+                    
+                    if omics in st.session_state.hierarchy_values['prism_omics']:
+                        sub_tissues = sorted(valid_df[
+                            (valid_df['Project'] == 'PRISM') & (valid_df['Omics'] == omics)
+                        ]['Tissue'].unique().tolist())
+                        
+                        st.markdown(f"##### {omics}에 대한 Tissue:")
+                        st.markdown("<div class='hierarchy-item'>", unsafe_allow_html=True)
+                        for tissue in sub_tissues:
+                            ot_key = f"{omics}___{tissue}"
+                            is_tissue_selected = (ot_key in st.session_state.hierarchy_values['prism_tissues'])
+                            if st.checkbox(tissue, value=is_tissue_selected, key=f"prism_tissue_{omics}_{tissue}"):
+                                if ot_key not in st.session_state.hierarchy_values['prism_tissues']:
+                                    st.session_state.hierarchy_values['prism_tissues'].append(ot_key)
+                            else:
+                                if ot_key in st.session_state.hierarchy_values['prism_tissues']:
+                                    st.session_state.hierarchy_values['prism_tissues'].remove(ot_key)
+                        st.markdown("</div>", unsafe_allow_html=True)
+            
+            with col2:
+                st.info("Omics와 Tissue를 선택하세요. 아래에 결과가 표시됩니다.")
+            
+            st.write("---")
+            filtered_data = filter_patients_by_hierarchy(valid_df, 'PRISM', st.session_state.hierarchy_values)
+            st.markdown("### 선택 조건에 부합하는 PRISM 환자/샘플")
+            if len(filtered_data) > 0:
+                st.dataframe(filtered_data, use_container_width=True)
+            else:
+                st.info("해당 조건에 맞는 PRISM 환자가 없습니다.")
+        
+        # ------ [PRISMUK] ------
+        with hierarchy_tab3:
+            st.subheader("PRISMUK - Omics→Tissue 선택")
+            col1, col2 = st.columns([1,1])
+            with col1:
+                st.markdown("#### Omics 선택")
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("모두 선택", key="select_all_prismuk"):
+                        all_omics = sorted(valid_df[valid_df['Project'] == 'PRISMUK']['Omics'].unique().tolist())
+                        st.session_state.hierarchy_values['prismuk_omics'] = all_omics
+                        
+                        all_tissues = []
+                        for omics in all_omics:
+                            sub_tissues = valid_df[
+                                (valid_df['Project'] == 'PRISMUK') & (valid_df['Omics'] == omics)
+                            ]['Tissue'].unique().tolist()
+                            for tissue in sub_tissues:
+                                all_tissues.append(f"{omics}___{tissue}")
+                        st.session_state.hierarchy_values['prismuk_tissues'] = all_tissues
+                
+                with col_btn2:
+                    if st.button("모두 해제", key="clear_all_prismuk"):
+                        st.session_state.hierarchy_values['prismuk_omics'] = []
+                        st.session_state.hierarchy_values['prismuk_tissues'] = []
+                
+                st.write("---")
+                
+                omics_list = sorted(valid_df[valid_df['Project'] == 'PRISMUK']['Omics'].unique().tolist())
+                for omics in omics_list:
+                    is_omics_selected = (omics in st.session_state.hierarchy_values['prismuk_omics'])
+                    if st.checkbox(omics, value=is_omics_selected, key=f"prismuk_omics_{omics}"):
+                        if omics not in st.session_state.hierarchy_values['prismuk_omics']:
+                            st.session_state.hierarchy_values['prismuk_omics'].append(omics)
+                    else:
+                        if omics in st.session_state.hierarchy_values['prismuk_omics']:
+                            st.session_state.hierarchy_values['prismuk_omics'].remove(omics)
+                            updated_tissues = []
+                            for ot in st.session_state.hierarchy_values['prismuk_tissues']:
+                                if not ot.startswith(f"{omics}___"):
+                                    updated_tissues.append(ot)
+                            st.session_state.hierarchy_values['prismuk_tissues'] = updated_tissues
+                    
+                    if omics in st.session_state.hierarchy_values['prismuk_omics']:
+                        sub_tissues = sorted(valid_df[
+                            (valid_df['Project'] == 'PRISMUK') & (valid_df['Omics'] == omics)
+                        ]['Tissue'].unique().tolist())
+                        
+                        st.markdown(f"##### {omics}에 대한 Tissue:")
+                        st.markdown("<div class='hierarchy-item'>", unsafe_allow_html=True)
+                        for tissue in sub_tissues:
+                            ot_key = f"{omics}___{tissue}"
+                            is_tissue_selected = (ot_key in st.session_state.hierarchy_values['prismuk_tissues'])
+                            if st.checkbox(tissue, value=is_tissue_selected, key=f"prismuk_tissue_{omics}_{tissue}"):
+                                if ot_key not in st.session_state.hierarchy_values['prismuk_tissues']:
+                                    st.session_state.hierarchy_values['prismuk_tissues'].append(ot_key)
+                            else:
+                                if ot_key in st.session_state.hierarchy_values['prismuk_tissues']:
+                                    st.session_state.hierarchy_values['prismuk_tissues'].remove(ot_key)
+                        st.markdown("</div>", unsafe_allow_html=True)
+            
+            with col2:
+                st.info("Omics와 Tissue를 선택하세요. 아래에 결과가 표시됩니다.")
+            
+            st.write("---")
+            filtered_data = filter_patients_by_hierarchy(valid_df, 'PRISMUK', st.session_state.hierarchy_values)
+            st.markdown("### 선택 조건에 부합하는 PRISMUK 환자/샘플")
+            if len(filtered_data) > 0:
+                st.dataframe(filtered_data, use_container_width=True)
+            else:
+                st.info("해당 조건에 맞는 PRISMUK 환자가 없습니다.")
     
     # ------------------------
     # (2) 기존 Omics 조합
