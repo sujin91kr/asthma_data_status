@@ -197,8 +197,8 @@ def get_excel_download_link(df, filename, link_text):
 
 def load_data():
     """
-    - 업로드된 DataFrame이 세션에 이미 있으면 그걸 사용
-    - 없으면 로컬 파일(asthma_data_storage.pkl)에서 로드 시도
+    업로드된 DataFrame이 세션에 이미 있으면 그걸 사용,
+    없으면 로컬 파일(asthma_data_storage.pkl)에서 로드 시도
     """
     data_storage_file = "asthma_data_storage.pkl"
     if st.session_state.shared_data is not None:
@@ -357,9 +357,7 @@ def create_hierarchy_summary(filtered_data):
     }).reset_index()
     patient_summary.rename(columns={'PatientID': 'PatientCount', 'SampleID': 'SampleCount'}, inplace=True)
     
-    # 최종 표현을 위해 가볍게 변형
     omics_unique = patient_summary['Omics'].unique()
-    
     pivot_summary = pd.DataFrame({'Omics': omics_unique})
     pivot_summary['Tissue'] = ''
     
@@ -373,7 +371,6 @@ def create_hierarchy_summary(filtered_data):
         pivot_summary[f'{visit}_PatientCount'] = 0
         pivot_summary[f'{visit}_SampleCount'] = 0
         
-        # visit 기준 필터
         visit_data = patient_summary[patient_summary['Visit'] == visit]
         for omics in omics_unique:
             row_mask = (visit_data['Omics'] == omics)
@@ -413,11 +410,12 @@ def login_page():
         
         if st.button("로그인", key="login_button"):
             if username in users and users[username]['password'] == password:
+                # 로그인 성공 시에는 세션 정보 갱신 후 즉시 stop.
                 st.session_state.logged_in = True
                 st.session_state.user = username
                 st.session_state.permissions = users[username]['permissions']
                 st.session_state.page = 'original_data'
-                st.stop()
+                st.stop()  # 로그인 페이지 아래 코드 출력 방지 & 다음 rerender시 'original_data' 페이지
             else:
                 st.error("사용자 이름 또는 비밀번호가 올바르지 않습니다.")
 
@@ -464,28 +462,31 @@ def validation_check_page():
     valid_df = get_valid_data(df)
     
     col1, col2, col3, col4 = st.columns(4)
+    # Visit
     with col1:
         is_valid_visit = (len(invalid_visit) == 0)
         st.markdown(
             f"""
             <div class="{'success-box' if is_valid_visit else 'error-box'}">
                 <h4>Visit 체크</h4>
-                <p>{'정상' if is_valid_visit else f'오류 발생 ({len(invalid_visit)}건)'}</p>
+                <p>{'정상' if is_valid_visit else f'오류 발견 ({len(invalid_visit)}건)'}</p>
                 <p>{'모든 Visit 값이 V1-V5 범위 내에 있습니다' if is_valid_visit else f'{len(invalid_visit)}개 레코드에 문제가 있습니다.'}</p>
             </div>
             """, unsafe_allow_html=True
         )
+    # Omics-Tissue
     with col2:
         is_valid_omics_tissue = (len(invalid_omics_tissue) == 0)
         st.markdown(
             f"""
             <div class="{'success-box' if is_valid_omics_tissue else 'error-box'}">
                 <h4>Omics-Tissue 체크</h4>
-                <p>{'정상' if is_valid_omics_tissue else f'오류 발생 ({len(invalid_omics_tissue)}건)'}</p>
+                <p>{'정상' if is_valid_omics_tissue else f'오류 발견 ({len(invalid_omics_tissue)}건)'}</p>
                 <p>{'모든 Omics-Tissue 조합이 유효합니다' if is_valid_omics_tissue else f'{len(invalid_omics_tissue)}개 레코드에 문제가 있습니다.'}</p>
             </div>
             """, unsafe_allow_html=True
         )
+    # Project
     with col3:
         is_valid_project = (len(invalid_project) == 0)
         st.markdown(
@@ -497,6 +498,7 @@ def validation_check_page():
             </div>
             """, unsafe_allow_html=True
         )
+    # 중복
     with col4:
         is_valid_duplicate = (len(duplicate_data) == 0)
         st.markdown(
@@ -753,6 +755,7 @@ def omics_combination_page():
                 col_btnA, col_btnB = st.columns(2)
                 with col_btnA:
                     if st.button("모두 선택", key="select_all_corea"):
+                        # '모두 선택'은 상태만 업데이트. st.stop()을 호출하지 않음.
                         all_omics = valid_df[valid_df['Project'] == 'COREA']['Omics'].unique().tolist()
                         st.session_state.hierarchy_values['corea_omics'] = all_omics
                         
@@ -768,16 +771,12 @@ def omics_combination_page():
                                 all_visits[key_ot] = valid_visits
                         st.session_state.hierarchy_values['corea_tissues'] = all_tissues
                         st.session_state.hierarchy_values['corea_visits'] = all_visits
-                        # st.experimental_rerun()
-                        st.stop()
-                
+                        
                 with col_btnB:
                     if st.button("모두 해제", key="clear_all_corea"):
                         st.session_state.hierarchy_values['corea_omics'] = []
                         st.session_state.hierarchy_values['corea_tissues'] = []
                         st.session_state.hierarchy_values['corea_visits'] = {}
-                        # st.experimental_rerun()
-                        st.stop()
                 
                 st.markdown("---")
                 
@@ -890,11 +889,11 @@ def omics_combination_page():
                 else:
                     st.info("선택된 항목이 없거나, 조건에 맞는 데이터가 없습니다.")
         
-        # ========== [PRISM] ==========
+        # ========== [PRISM] ========== 
+        # (동일한 방식: '모두 선택/해제' 시 상태만 업데이트, 탭/메뉴 유지는 st.stop() 사용 안 함)
         with hierarchy_tab2:
             col1, col2 = st.columns([1, 2])
             
-            # -- 왼쪽(Omics/Tissue/Visit 선택)
             with col1:
                 st.markdown("### Omics 선택")
                 col_btnA, col_btnB = st.columns(2)
@@ -915,16 +914,12 @@ def omics_combination_page():
                                 all_visits[key_ot] = valid_visits
                         st.session_state.hierarchy_values['prism_tissues'] = all_tissues
                         st.session_state.hierarchy_values['prism_visits'] = all_visits
-                        # st.experimental_rerun()
-                        st.stop()
                 
                 with col_btnB:
                     if st.button("모두 해제", key="clear_all_prism"):
                         st.session_state.hierarchy_values['prism_omics'] = []
                         st.session_state.hierarchy_values['prism_tissues'] = []
                         st.session_state.hierarchy_values['prism_visits'] = {}
-                        # st.experimental_rerun()
-                        st.stop()
                 
                 st.markdown("---")
                 
@@ -939,8 +934,6 @@ def omics_combination_page():
                     else:
                         if omics in st.session_state.hierarchy_values['prism_omics']:
                             st.session_state.hierarchy_values['prism_omics'].remove(omics)
-                            
-                            # tissue & visit에서 제거
                             updated_tissues = []
                             updated_visits = {}
                             for ot_key in st.session_state.hierarchy_values['prism_tissues']:
@@ -983,8 +976,7 @@ def omics_combination_page():
                                 st.markdown("</div>", unsafe_allow_html=True)
                         
                         st.markdown("</div>", unsafe_allow_html=True)
-            
-            # -- 오른쪽(결과 표시)
+
             with col2:
                 st.markdown("### 선택된 Omics 조합 결과")
                 filtered_data = get_hierarchy_filtered_data(valid_df, 'PRISM', st.session_state.hierarchy_values)
@@ -1034,10 +1026,10 @@ def omics_combination_page():
                     st.info("선택된 항목이 없거나, 조건에 맞는 데이터가 없습니다.")
         
         # ========== [PRISMUK] ==========
+        # (동일한 방식)
         with hierarchy_tab3:
             col1, col2 = st.columns([1, 2])
             
-            # -- 왼쪽(Omics/Tissue/Visit 선택)
             with col1:
                 st.markdown("### Omics 선택")
                 col_btnA, col_btnB = st.columns(2)
@@ -1058,16 +1050,12 @@ def omics_combination_page():
                                 all_visits[key_ot] = valid_visits
                         st.session_state.hierarchy_values['prismuk_tissues'] = all_tissues
                         st.session_state.hierarchy_values['prismuk_visits'] = all_visits
-                        # st.experimental_rerun()
-                        st.stop()
                 
                 with col_btnB:
                     if st.button("모두 해제", key="clear_all_prismuk"):
                         st.session_state.hierarchy_values['prismuk_omics'] = []
                         st.session_state.hierarchy_values['prismuk_tissues'] = []
                         st.session_state.hierarchy_values['prismuk_visits'] = {}
-                        # st.experimental_rerun()
-                        st.stop()
                 
                 st.markdown("---")
                 
@@ -1083,7 +1071,6 @@ def omics_combination_page():
                         if omics in st.session_state.hierarchy_values['prismuk_omics']:
                             st.session_state.hierarchy_values['prismuk_omics'].remove(omics)
                             
-                            # tissue & visit에서 제거
                             updated_tissues = []
                             updated_visits = {}
                             for ot_key in st.session_state.hierarchy_values['prismuk_tissues']:
@@ -1127,7 +1114,6 @@ def omics_combination_page():
                         
                         st.markdown("</div>", unsafe_allow_html=True)
             
-            # -- 오른쪽(결과 표시)
             with col2:
                 st.markdown("### 선택된 Omics 조합 결과")
                 filtered_data = get_hierarchy_filtered_data(valid_df, 'PRISMUK', st.session_state.hierarchy_values)
@@ -1199,7 +1185,6 @@ def omics_combination_page():
                     
                     if selected_combo:
                         st.session_state.selected_omics_combo_corea = selected_combo
-                        # 어떤 환자들이 이 OmicsCombo를 갖는지
                         patients_with_combo = valid_df.groupby(['Project','PatientID']).apply(
                             lambda x: ' + '.join(sorted(x['Omics'].unique()))
                         ).reset_index().rename(columns={0:'OmicsCombo'})
@@ -1271,8 +1256,6 @@ def omics_combination_page():
                     
                     if selected_combo:
                         st.session_state.selected_omics_combo_prism = selected_combo
-                        
-                        # 어떤 환자들이 이 OmicsCombo를 갖는지
                         patients_with_combo = valid_df.groupby(['Project','PatientID']).apply(
                             lambda x: ' + '.join(sorted(x['Omics'].unique()))
                         ).reset_index().rename(columns={0:'OmicsCombo'})
@@ -1407,10 +1390,10 @@ def omics_combination_page():
 def sidebar_menu():
     st.sidebar.markdown(f"<div class='user-info'>사용자: {st.session_state.user}</div>", unsafe_allow_html=True)
     
+    # 로그아웃 버튼만 누르면 세션 정보 초기화 후 즉시 stop → 다음 렌더링에서 login_page 보여줌
     if st.sidebar.button("로그아웃", key="logout_btn", type="primary"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
-        # st.experimental_rerun()
         st.stop()
     
     st.sidebar.markdown("---")
@@ -1431,7 +1414,7 @@ def sidebar_menu():
     
     st.sidebar.markdown("---")
     
-    # 네비게이션
+    # 네비게이션 버튼: 페이지 이동 (stop() 없이도 Streamlit이 자동 재렌더링)
     menu_options = {
         "원본 데이터": "original_data",
         "데이터 유효성 검사": "validation_check",
@@ -1443,8 +1426,7 @@ def sidebar_menu():
     for menu_title, page_name in menu_options.items():
         if st.sidebar.button(menu_title, key=f"menu_{page_name}"):
             st.session_state.page = page_name
-            # st.experimental_rerun()
-            st.stop()
+            # 바로 아래에 있는 main()가 재실행되면서 page에 맞는 페이지가 표시됨
 
 def main():
     """
@@ -1453,7 +1435,7 @@ def main():
     if not st.session_state.logged_in:
         login_page()
     else:
-        # 사이드바
+        # 사이드바 표시
         sidebar_menu()
         # 페이지 라우팅
         if st.session_state.page == 'original_data':
