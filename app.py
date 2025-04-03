@@ -9,7 +9,7 @@ from PIL import Image
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 # 타임존 설정 (KST: UTC+9)
 KST = timezone(timedelta(hours=9))
