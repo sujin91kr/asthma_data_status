@@ -315,17 +315,20 @@ def get_file_download_link(df, filename, link_text):
 #############################################
 # 페이지 레이아웃
 #############################################
+#############################################
+# 페이지 레이아웃
+#############################################
 def login_page():
-    st.markdown('<div class="main-header">COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
+    st.write("# COREA | PRISM Omics Data Status")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         # 스타일 적용된 컨테이너 대신 기본 Streamlit 컨테이너 사용
-        st.container().markdown("### 로그인")
+        st.container().write("### 로그인")
         
         with st.container():
-            username = st.text_input("사용자 이름")
-            password = st.text_input("비밀번호", type="password")
+            username = st.text_input("사용자 이름", key="login_username")
+            password = st.text_input("비밀번호", type="password", key="login_password")
             
             if st.button("로그인", key="login_button"):
                 if username and password:
@@ -341,49 +344,31 @@ def login_page():
                     st.warning("사용자 이름과 비밀번호를 모두 입력해주세요.")
 
 def main_page():
-    st.markdown('<div class="main-header">COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
+    st.write("# COREA | PRISM Omics Data Status")
     
     # 상단 네비게이션
     col1, col2, col3 = st.columns([5, 3, 2])
     with col1:
-        st.markdown(f"환영합니다, **{st.session_state.username}**님")
+        st.write(f"환영합니다, **{st.session_state.username}**님")
     with col2:
         # 마지막 업데이트 정보 표시
         if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, 'r') as f:
-                config = json.load(f)
-                if 'last_update' in config:
-                    st.markdown(f"마지막 업데이트: {config['last_update']}")
+            try:
+                with open(CONFIG_FILE, 'r') as f:
+                    config = json.load(f)
+                    if 'last_update' in config:
+                        st.write(f"마지막 업데이트: {config['last_update']}")
+            except Exception:
+                st.write("업데이트 정보를 불러올 수 없습니다.")
     with col3:
-        if st.button("로그아웃"):
+        if st.button("로그아웃", key="logout_button"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
-            st.rerun()  # experimental_rerun 대신 rerun 사용
-
-    # 메뉴 구성
-    menu_options = {
-        '오믹스 개별 현황': "data_ind_dashboard",
-        '오믹스 조합 현황': "data_comb_dashboard",
-        '샘플 ID 리스트': "data_id_list"
-    }
-
-    if st.session_state.is_admin:
-        menu_options.update({"관리자 설정": "data_management"})
-
-    for menu_title, page_name in menu_options.items():
-        if st.sidebar.button(menu_title, key=f"menu_{page_name}"):
-            st.session_state.page = page_name
-            st.rerun()  # experimental_rerun 대신 rerun 사용
+            st.rerun()
     
-    # 푸터
-    st.markdown(
-        """
-        <div class="footer">
-            © 2025 COREA PRISM Omics Data Status | 개발: WonLab
-        </div>
-        """, 
-        unsafe_allow_html=True
-    )
+    # 푸터 (일반 텍스트로 변경)
+    st.write("---")
+    st.write("© 2025 COREA PRISM Omics Data Status | 개발: WonLab")
 
 #############################################
 # 오믹스 개별 현황 페이지
@@ -829,31 +814,32 @@ def data_validation():
 def admin_settings():
     st.markdown('<div class="sub-header">관리자 설정</div>', unsafe_allow_html=True)
     
-    admin_tabs = st.tabs(["데이터 업로드", "사용자 관리", "시스템 설정"])
+    tab_labels = ["데이터 업로드", "사용자 관리", "시스템 설정"]
+    admin_tabs = st.tabs(tab_labels)
     
     # 데이터 업로드 탭
     with admin_tabs[0]:
-        st.markdown("### 데이터 업로드")
-        st.markdown("최신 임상 데이터를 업로드하세요. 업로드 후 자동으로 유효성 검사가 수행됩니다.")
+        st.write("### 데이터 업로드")
+        st.write("최신 임상 데이터를 업로드하세요. 업로드 후 자동으로 유효성 검사가 수행됩니다.")
         
-        uploaded_file = st.file_uploader("Excel 파일 선택", type=["xlsx", "xls"])
+        uploaded_file = st.file_uploader("Excel 파일 선택", type=["xlsx", "xls"], key="admin_file_uploader")
         
         if uploaded_file is not None:
-            if st.button("파일 업로드"):
+            if st.button("파일 업로드", key="upload_file_btn"):
                 try:
                     # 파일 저장
                     save_uploaded_file(uploaded_file)
                     st.success(f"파일이 성공적으로 업로드되었습니다: {uploaded_file.name}")
                     
                     # 데이터 유효성 검사
-                    st.markdown("### 업로드된 데이터 유효성 검사")
+                    st.write("### 업로드된 데이터 유효성 검사")
                     data_validation()
                 except Exception as e:
                     st.error(f"파일 업로드 중 오류가 발생했습니다: {e}")
     
     # 사용자 관리 탭
     with admin_tabs[1]:
-        st.markdown("### 사용자 관리")
+        st.write("### 사용자 관리")
         
         users = load_users()
         
@@ -871,7 +857,7 @@ def admin_settings():
             st.warning("사용자 정보를 불러올 수 없습니다.")
         
         # 새 사용자 추가
-        st.markdown("### 새 사용자 추가")
+        st.write("### 새 사용자 추가")
         col1, col2 = st.columns(2)
         with col1:
             new_username = st.text_input("사용자명", key="new_username_input")
@@ -882,11 +868,13 @@ def admin_settings():
         
         if st.button("사용자 추가", key="add_user_button"):
             if new_username and new_password:
-                if users and new_username in users:
+                # users가 None이거나 비어있는 경우 초기화
+                if not users:
+                    users = {}
+                
+                if new_username in users:
                     st.error(f"'{new_username}' 사용자가 이미 존재합니다.")
                 else:
-                    if not users:
-                        users = {}
                     users[new_username] = {
                         "password": hashlib.sha256(new_password.encode()).hexdigest(),
                         "is_admin": is_admin
@@ -901,51 +889,59 @@ def admin_settings():
                 st.warning("사용자명과 비밀번호를 모두 입력해주세요.")
         
         # 사용자 삭제
-        st.markdown("### 사용자 삭제")
+        st.write("### 사용자 삭제")
         
         current_username = st.session_state.get("username", "")
-        deletable_users = [u for u in users.keys() if u != current_username]
-        if len(deletable_users) == 0:
+        deletable_users = []
+        
+        # users가 있는 경우에만 삭제 가능한 사용자 목록 생성
+        if users:
+            deletable_users = [u for u in users.keys() if u != current_username]
+        
+        if not deletable_users:
             st.warning("삭제할 수 있는 다른 사용자가 없습니다.")
         else:
-            user_to_delete = st.selectbox("삭제할 사용자 선택", options=deletable_users)
+            user_to_delete = st.selectbox("삭제할 사용자 선택", options=deletable_users, key="user_delete_select")
             
-            if st.button("사용자 삭제"):
+            if st.button("사용자 삭제", key="delete_user_button"):
                 if user_to_delete:
                     try:
                         del users[user_to_delete]
                         save_users(users)
                         st.success(f"사용자 '{user_to_delete}'가 삭제되었습니다.")
-                        st.rerun()  # experimental_rerun 대신 rerun 사용
+                        st.rerun()
                     except Exception as e:
                         st.error(f"사용자 삭제 중 오류가 발생했습니다: {e}")
     
     # 시스템 설정 탭
     with admin_tabs[2]:
-        st.markdown("### 시스템 설정")
+        st.write("### 시스템 설정")
         
         # 유효한 값 설정
-        st.markdown("#### 유효한 값 설정")
+        st.write("#### 유효한 값 설정")
         
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**Visit 설정**")
+            st.write("**Visit 설정**")
             valid_visits_str = ", ".join(VALID_VISITS)
-            new_valid_visits = st.text_area("유효한 Visit 값 (쉼표로 구분)", value=valid_visits_str)
+            new_valid_visits = st.text_area("유효한 Visit 값 (쉼표로 구분)", value=valid_visits_str, key="valid_visits_input")
         with col2:
-            st.markdown("**Project 설정**")
+            st.write("**Project 설정**")
             valid_projects_str = ", ".join(VALID_PROJECTS)
-            new_valid_projects = st.text_area("유효한 Project 값 (쉼표로 구분)", value=valid_projects_str)
+            new_valid_projects = st.text_area("유효한 Project 값 (쉼표로 구분)", value=valid_projects_str, key="valid_projects_input")
         
-        st.markdown("#### Omics-Tissue 조합 설정")
+        st.write("#### Omics-Tissue 조합 설정")
         st.info("Omics-Tissue 조합 설정은 현재 코드 상의 VALID_OMICS_TISSUE 사전을 직접 수정하여 변경할 수 있습니다.")
         
-        if st.button("설정 저장"):
-            """
-            실제 구현에서는 입력된 new_valid_visits, new_valid_projects 등을
-            VALID_VISITS, VALID_PROJECTS에 반영하고, config.json에 저장하는 로직을 넣을 수 있습니다.
-            """
-            st.success("설정이 저장되었습니다. (실제 코드에서는 수정 사항을 config에 반영하는 로직 추가 필요)")
+        if st.button("설정 저장", key="save_settings_button"):
+            try:
+                """
+                실제 구현에서는 입력된 new_valid_visits, new_valid_projects 등을
+                VALID_VISITS, VALID_PROJECTS에 반영하고, config.json에 저장하는 로직을 넣을 수 있습니다.
+                """
+                st.success("설정이 저장되었습니다. (실제 코드에서는 수정 사항을 config에 반영하는 로직 추가 필요)")
+            except Exception as e:
+                st.error(f"설정 저장 중 오류가 발생했습니다: {e}")
 
 #############################################
 # 메인 실행 부분
@@ -965,21 +961,25 @@ def main():
         if not st.session_state.authenticated:
             login_page()
         else:
-            # 로그인 후 상단바와 페이지 네비게이션 포함된 메인 UI
-            st.sidebar.title("📊 메뉴 선택")
-            menu_options = {
-                '오믹스 개별 현황': "data_ind_dashboard",
-                '오믹스 조합 현황': "data_comb_dashboard",
-                '샘플 ID 리스트': "data_id_list"
-            }
+            # 로그인 후 상단바와 페이지 네비게이션 
+            main_page()
             
-            # 관리자 권한 확인
+            # 사이드바 메뉴 구성
+            st.sidebar.title("📊 메뉴 선택")
+            
+            # 메뉴 옵션 정의
+            menu_options = []
+            menu_options.append(("오믹스 개별 현황", "data_ind_dashboard"))
+            menu_options.append(("오믹스 조합 현황", "data_comb_dashboard"))
+            menu_options.append(("샘플 ID 리스트", "data_id_list"))
+            
+            # 관리자인 경우 관리자 설정 추가
             if st.session_state.get("is_admin", False):
-                menu_options["관리자 설정"] = "data_management"
+                menu_options.append(("관리자 설정", "data_management"))
 
-            # 메뉴 버튼 생성
-            for menu_title, page_name in menu_options.items():
-                if st.sidebar.button(menu_title, key=f"menu_{page_name}"):
+            # 메뉴 버튼 생성 (각 버튼에 고유한 키 할당)
+            for idx, (menu_title, page_name) in enumerate(menu_options):
+                if st.sidebar.button(menu_title, key=f"menu_btn_{idx}_{page_name}"):
                     st.session_state.page = page_name
                     st.rerun()
 
