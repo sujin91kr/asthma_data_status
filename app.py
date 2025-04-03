@@ -197,11 +197,9 @@ def load_data():
             if not all(col in df.columns for col in required_cols):
                 st.error(f"데이터 파일에 필수 컬럼이 누락되었습니다. 필요한 컬럼: {', '.join(required_cols)}")
                 return None
-            
             # 날짜 형식 변환
             if 'Date' in df.columns:
                 df['Date'] = pd.to_datetime(df['Date'], errors='coerce', utc=False)
-            
             return df
         except Exception as e:
             st.error(f"데이터 로딩 중 오류가 발생했습니다: {e}")
@@ -283,22 +281,6 @@ def save_uploaded_file(uploaded_file):
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f)
 
-def get_sample_paths(df):
-    """
-    실제 환경에서는 각 조직의 파일이 저장된 위치(서버 경로 등)를 
-    구성 규칙에 맞춰서 반환하도록 구현합니다.
-    여기서는 예시로 /data/Project/PatientID/Visit/Omics/Tissue/SampleID 구조로 생성
-    """
-    sample_paths = {}
-    
-    if df is None or df.empty:
-        return sample_paths
-        
-    for _, row in df.iterrows():
-        path = f"/data/{row['Project']}/{row['PatientID']}/{row['Visit']}/{row['Omics']}/{row['Tissue']}/{row['SampleID']}"
-        key = f"{row['PatientID']}_{row['Visit']}_{row['Omics']}_{row['Tissue']}"
-        sample_paths[key] = path
-    return sample_paths
 
 def get_file_download_link(df, filename, link_text):
     """데이터프레임을 다운로드 가능한 엑셀 링크로 변환"""
@@ -312,9 +294,7 @@ def get_file_download_link(df, filename, link_text):
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">{link_text}</a>'
     return href
 
-#############################################
-# 페이지 레이아웃
-#############################################
+
 #############################################
 # 페이지 레이아웃
 #############################################
@@ -323,25 +303,33 @@ def login_page():
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        # 스타일 적용된 컨테이너 대신 기본 Streamlit 컨테이너 사용
-        st.container().write("### 로그인")
+        st.markdown(
+            """
+            <div style="background-color: #F9FAFB; padding: 20px; border-radius: 10px; 
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.12);">
+                <h3 style="text-align: center; color: #1E3A8A;">로그인</h3>
+            """, 
+            unsafe_allow_html=True
+        )
         
-        with st.container():
-            username = st.text_input("사용자 이름", key="login_username")
-            password = st.text_input("비밀번호", type="password", key="login_password")
-            
-            if st.button("로그인", key="login_button"):
-                if username and password:
-                    success, is_admin = authenticate(username, password)
-                    if success:
-                        st.session_state.authenticated = True
-                        st.session_state.is_admin = is_admin
-                        st.session_state.username = username
-                        st.rerun()
-                    else:
-                        st.error("로그인 실패: 사용자 이름 또는 비밀번호가 잘못되었습니다.")
+        username = st.text_input("사용자 이름")
+        password = st.text_input("비밀번호", type="password")
+
+        if st.button("로그인", key="login_button"):
+            if username and password:
+                success, is_admin = authenticate(username, password)
+                if success:
+                    st.session_state.authenticated = True
+                    st.session_state.is_admin = is_admin
+                    st.session_state.username = username
+                    st.experimental_rerun()
                 else:
-                    st.warning("사용자 이름과 비밀번호를 모두 입력해주세요.")
+                    st.error("로그인 실패: 사용자 이름 또는 비밀번호가 잘못되었습니다.")
+            else:
+                st.warning("사용자 이름과 비밀번호를 모두 입력해주세요.")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+
 
 def main_page():
     st.write("# COREA | PRISM Omics Data Status")
