@@ -874,10 +874,8 @@ def admin_settings():
 # 메인 실행 부분
 #############################################
 def main():
-    # 사용자 초기화
     init_users()
-    
-    # 로그인 상태 체크
+
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
         st.session_state.is_admin = False
@@ -886,17 +884,35 @@ def main():
     if not st.session_state.authenticated:
         login_page()
     else:
+        # 로그인 후 상단바와 페이지 네비게이션 포함된 메인 UI
+        st.sidebar.title("📊 메뉴 선택")
+        menu_options = {
+            '오믹스 개별 현황': "data_ind_dashboard",
+            '오믹스 조합 현황': "data_comb_dashboard",
+            '샘플 ID 리스트': "data_id_list"
+        }
+        if st.session_state.is_admin:
+            menu_options["관리자 설정"] = "data_management"
+
+        for menu_title, page_name in menu_options.items():
+            if st.sidebar.button(menu_title, key=f"menu_{page_name}"):
+                st.session_state.page = page_name
+                st.experimental_rerun()
+
+        # 기본적으로 설정된 페이지로 라우팅
         page = st.session_state.get("page", "data_ind_dashboard")
+
         if page == "data_ind_dashboard":
             view_data_ind_dashboard()
         elif page == "data_comb_dashboard":
             view_data_comb_dashboard()
         elif page == "data_id_list":
-            st.info("샘플 ID 리스트 페이지 준비 중입니다.")
+            st.info("샘플 ID 리스트 페이지는 준비 중입니다.")
         elif page == "data_management":
             view_data_management()
         else:
-            st.error("페이지를 찾을 수 없습니다.")
+            st.error("알 수 없는 페이지입니다.")
+
 
 if __name__ == "__main__":
     main()
