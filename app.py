@@ -320,32 +320,25 @@ def login_page():
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown(
-            """
-            <div style="background-color: #F9FAFB; padding: 20px; border-radius: 10px; 
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.12);">
-                <h3 style="text-align: center; color: #1E3A8A;">로그인</h3>
-            """, 
-            unsafe_allow_html=True
-        )
+        # 스타일 적용된 컨테이너 대신 기본 Streamlit 컨테이너 사용
+        st.container().markdown("### 로그인")
         
-        username = st.text_input("사용자 이름")
-        password = st.text_input("비밀번호", type="password")
-        
-        if st.button("로그인", key="login_button"):
-            if username and password:
-                success, is_admin = authenticate(username, password)
-                if success:
-                    st.session_state.authenticated = True
-                    st.session_state.is_admin = is_admin
-                    st.session_state.username = username
-                    st.rerun()  # experimental_rerun 대신 rerun 사용
+        with st.container():
+            username = st.text_input("사용자 이름")
+            password = st.text_input("비밀번호", type="password")
+            
+            if st.button("로그인", key="login_button"):
+                if username and password:
+                    success, is_admin = authenticate(username, password)
+                    if success:
+                        st.session_state.authenticated = True
+                        st.session_state.is_admin = is_admin
+                        st.session_state.username = username
+                        st.rerun()
+                    else:
+                        st.error("로그인 실패: 사용자 이름 또는 비밀번호가 잘못되었습니다.")
                 else:
-                    st.error("로그인 실패: 사용자 이름 또는 비밀번호가 잘못되었습니다.")
-            else:
-                st.warning("사용자 이름과 비밀번호를 모두 입력해주세요.")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
+                    st.warning("사용자 이름과 비밀번호를 모두 입력해주세요.")
 
 def main_page():
     st.markdown('<div class="main-header">COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
@@ -881,17 +874,19 @@ def admin_settings():
         st.markdown("### 새 사용자 추가")
         col1, col2 = st.columns(2)
         with col1:
-            new_username = st.text_input("사용자명")
+            new_username = st.text_input("사용자명", key="new_username_input")
         with col2:
-            new_password = st.text_input("비밀번호", type="password")
+            new_password = st.text_input("비밀번호", type="password", key="new_password_input")
         
-        is_admin = st.checkbox("관리자 권한 부여")
+        is_admin = st.checkbox("관리자 권한 부여", key="admin_checkbox")
         
-        if st.button("사용자 추가"):
+        if st.button("사용자 추가", key="add_user_button"):
             if new_username and new_password:
-                if new_username in users:
+                if users and new_username in users:
                     st.error(f"'{new_username}' 사용자가 이미 존재합니다.")
                 else:
+                    if not users:
+                        users = {}
                     users[new_username] = {
                         "password": hashlib.sha256(new_password.encode()).hexdigest(),
                         "is_admin": is_admin
@@ -899,7 +894,7 @@ def admin_settings():
                     try:
                         save_users(users)
                         st.success(f"사용자 '{new_username}'가 추가되었습니다.")
-                        st.rerun()  # experimental_rerun 대신 rerun 사용
+                        st.rerun()
                     except Exception as e:
                         st.error(f"사용자 추가 중 오류가 발생했습니다: {e}")
             else:
@@ -956,47 +951,54 @@ def admin_settings():
 # 메인 실행 부분
 #############################################
 def main():
-    # 사용자 정보 초기화
-    init_users()
+    try:
+        # 사용자 정보 초기화
+        init_users()
 
-    # 세션 상태 초기화
-    if 'authenticated' not in st.session_state:
-        st.session_state.authenticated = False
-        st.session_state.is_admin = False
-        st.session_state.page = "login"
-        st.session_state.username = ""
+        # 세션 상태 초기화
+        if 'authenticated' not in st.session_state:
+            st.session_state.authenticated = False
+            st.session_state.is_admin = False
+            st.session_state.page = "login"
+            st.session_state.username = ""
 
-    if not st.session_state.authenticated:
-        login_page()
-    else:
-        # 로그인 후 상단바와 페이지 네비게이션 포함된 메인 UI
-        st.sidebar.title("📊 메뉴 선택")
-        menu_options = {
-            '오믹스 개별 현황': "data_ind_dashboard",
-            '오믹스 조합 현황': "data_comb_dashboard",
-            '샘플 ID 리스트': "data_id_list"
-        }
-        if st.session_state.is_admin:
-            menu_options["관리자 설정"] = "data_management"
-
-        for menu_title, page_name in menu_options.items():
-            if st.sidebar.button(menu_title, key=f"menu_{page_name}"):
-                st.session_state.page = page_name
-                st.rerun()  # experimental_rerun 대신 rerun 사용
-
-        # 기본적으로 설정된 페이지로 라우팅
-        page = st.session_state.get("page", "data_ind_dashboard")
-
-        if page == "data_ind_dashboard":
-            view_data_ind_dashboard()
-        elif page == "data_comb_dashboard":
-            view_data_comb_dashboard()
-        elif page == "data_id_list":
-            view_data_id_list()
-        elif page == "data_management" and st.session_state.is_admin:
-            view_data_management()
+        if not st.session_state.authenticated:
+            login_page()
         else:
-            st.error("알 수 없는 페이지이거나 접근 권한이 없습니다.")
+            # 로그인 후 상단바와 페이지 네비게이션 포함된 메인 UI
+            st.sidebar.title("📊 메뉴 선택")
+            menu_options = {
+                '오믹스 개별 현황': "data_ind_dashboard",
+                '오믹스 조합 현황': "data_comb_dashboard",
+                '샘플 ID 리스트': "data_id_list"
+            }
+            
+            # 관리자 권한 확인
+            if st.session_state.get("is_admin", False):
+                menu_options["관리자 설정"] = "data_management"
+
+            # 메뉴 버튼 생성
+            for menu_title, page_name in menu_options.items():
+                if st.sidebar.button(menu_title, key=f"menu_{page_name}"):
+                    st.session_state.page = page_name
+                    st.rerun()
+
+            # 기본적으로 설정된 페이지로 라우팅
+            page = st.session_state.get("page", "data_ind_dashboard")
+
+            if page == "data_ind_dashboard":
+                view_data_ind_dashboard()
+            elif page == "data_comb_dashboard":
+                view_data_comb_dashboard()
+            elif page == "data_id_list":
+                view_data_id_list()
+            elif page == "data_management" and st.session_state.get("is_admin", False):
+                view_data_management()
+            else:
+                st.error("알 수 없는 페이지이거나 접근 권한이 없습니다.")
+    except Exception as e:
+        st.error(f"애플리케이션 실행 중 오류가 발생했습니다: {str(e)}")
+        st.info("오류가 지속되면 관리자에게 문의하세요.")
 
 
 if __name__ == "__main__":
