@@ -301,7 +301,7 @@ def get_file_download_link(df, filename, link_text):
 # 페이지 레이아웃
 #############################################
 def login_page():
-    st.markdown('<div class="main-header">**Login** COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -333,10 +333,10 @@ def login_page():
         st.markdown("</div>", unsafe_allow_html=True)
 
 def main_page():
-    st.markdown('<div class="main-header">임상 데이터 관리 시스템</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
     
     # 상단 네비게이션
-    col1, col2, col3 = st.columns([6, 3, 1])
+    col1, col2, col3 = st.columns([5, 3, 2])
     with col1:
         st.markdown(f"환영합니다, **{st.session_state.username}**님")
     with col2:
@@ -351,42 +351,38 @@ def main_page():
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.experimental_rerun()
-    
-    # 탭 구성
-    tabs = ["데이터 현황", "데이터 관리"]
+
+    # 메뉴 구성
+    menu_options = {
+        '오믹스 개별 현황': "data_ind_dashboard",
+        '오믹스 조합 현황': "data_comb_dashboard",
+        '샘플 ID 리스트': "data_id_list"
+    }
+
     if st.session_state.is_admin:
-        tabs.append("관리자 설정")
-    
-    main_tab = st.tabs(tabs)
-    
-    # 데이터 현황 탭
-    with main_tab[0]:
-        view_data_dashboard()
-    
-    # 데이터 관리 탭
-    with main_tab[1]:
-        view_data_management()
-    
-    # 관리자 설정 탭
-    if st.session_state.is_admin and len(main_tab) > 2:
-        with main_tab[2]:
-            admin_settings()
+        menu_options.update({"관리자 설정": "data_management"})
+
+    for menu_title, page_name in menu_options.items():
+        if st.sidebar.buttion(menu_title, key=f"menu_{page_name}"):
+            st.session_state.page = page_name
+            st.experimental_rerun()
     
     # 푸터
     st.markdown(
         """
         <div class="footer">
-            © 2025 임상 데이터 관리 시스템 | 개발: AI 기반 임상 데이터 관리팀
+            © 2025 COREA PRISM Omics Data Status | 개발: WonLab
         </div>
         """, 
         unsafe_allow_html=True
     )
 
+
 #############################################
-# 데이터 현황(대시보드) 페이지
+# 오믹스 개별 현황 페이지
 #############################################
-def view_data_dashboard():
-    st.markdown('<div class="sub-header">데이터 현황 대시보드</div>', unsafe_allow_html=True)
+def view_data_ind_dashboard():
+    st.markdown('<div class="sub-header">오믹스 데이터 현황</div>', unsafe_allow_html=True)
     
     df = load_data()
     if df is None:
@@ -394,27 +390,23 @@ def view_data_dashboard():
         return
     
     # 데이터 요약 정보
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("총 환자 수", df['PatientID'].nunique())
-    with col2:
-        st.metric("총 샘플 수", len(df))
-    with col3:
         st.metric("프로젝트 수", df['Project'].nunique())
-    with col4:
-        max_date = df['Date'].max()
-        st.metric("최근 샘플 날짜", max_date.strftime('%Y-%m-%d') if pd.notna(max_date) else "N/A")
+    with col2:
+        st.metric("총 환자 수", df['PatientID'].nunique())
+    with col3:
+        st.metric("총 샘플 수", len(df))
     
     # 탭 구성
     dashboard_tabs = st.tabs([
         "코호트별 환자수", 
-        "오믹스별 환자수", 
-        "오믹스 조합별 환자수"
+        "오믹스별 환자수"
     ])
     
-    # 페이지 1: 코호트별(프로젝트별) 환자수
+    # 탭 1: 코호트별(프로젝트별) 환자수
     with dashboard_tabs[0]:
-        st.markdown('<div class="sub-header">코호트별 - 오믹스별 - Visit별 환자수</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sub-header">코호트 - 오믹스 - Visit 환자수</div>', unsafe_allow_html=True)
         
         projects = sorted(df['Project'].unique())
         project_tabs = st.tabs(projects)
@@ -463,9 +455,9 @@ def view_data_dashboard():
                     unsafe_allow_html=True
                 )
     
-    # 페이지 2: 오믹스별 환자수
+    # 탭 2: 오믹스별 환자수
     with dashboard_tabs[1]:
-        st.markdown('<div class="sub-header">오믹스별 - 코호트별 - Visit별 환자수</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sub-header">오믹스 - 코호트 - Visit 환자수</div>', unsafe_allow_html=True)
         
         omics_list = sorted(df['Omics'].unique())
         omics_tabs = st.tabs(omics_list)
@@ -513,168 +505,155 @@ def view_data_dashboard():
                     ),
                     unsafe_allow_html=True
                 )
+
+
+#############################################
+# 오믹스 조합 현황 페이지
+#############################################
+def view_data_comb_dashboard():
+
+    df = load_data()
+    if df is None:
+        st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
+        return
     
-    # 페이지 3: 오믹스 조합별 환자수
-    with dashboard_tabs[2]:
-        st.markdown('<div class="sub-header">코호트별 오믹스 조합 및 샘플 선택</div>', unsafe_allow_html=True)
-        
-        projects = sorted(df['Project'].unique())
-        project_tabs = st.tabs(projects)
-        
-        for i, project in enumerate(projects):
-            with project_tabs[i]:
-                project_df = df[df['Project'] == project]
-                
-                # 1. 오믹스 조합별 환자수 요약
-                st.markdown('<div class="sub-header">오믹스 조합별 환자 요약</div>', unsafe_allow_html=True)
-                
-                # 각 환자별로 가진 오믹스 종류 파악
-                patient_omics = {}
-                for patient_id in project_df['PatientID'].unique():
-                    patient_data = project_df[project_df['PatientID'] == patient_id]
-                    patient_omics[patient_id] = sorted(patient_data['Omics'].unique())
-                
-                # 오믹스 조합별 환자수 계산
-                omics_combinations = {}
-                for patient_id, omics_list in patient_omics.items():
-                    combination = " + ".join(omics_list)
-                    if combination in omics_combinations:
-                        omics_combinations[combination] += 1
-                    else:
-                        omics_combinations[combination] = 1
-                
-                # 결과 데이터프레임 변환
-                combinations_df = pd.DataFrame([
-                    {"오믹스 조합": combo, "환자수": count}
-                    for combo, count in omics_combinations.items()
-                ]).sort_values(by="환자수", ascending=False)
-                
-                st.dataframe(combinations_df, use_container_width=True)
-                
-                # 2. 오믹스 및 조직 선택 UI
-                st.markdown('<div class="sub-header">오믹스 및 조직 선택</div>', unsafe_allow_html=True)
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    available_omics = sorted(project_df['Omics'].unique())
-                    selected_omics = st.multiselect(
-                        "오믹스 선택",
-                        options=available_omics,
-                        default=available_omics[0] if available_omics else None
+    # 데이터 요약 정보
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("프로젝트 수", df['Project'].nunique())
+    with col2:
+        st.metric("총 환자 수", df['PatientID'].nunique())
+    with col3:
+        st.metric("총 샘플 수", len(df))
+
+    projects = sorted(df['Project'].unique())
+    project_tabs = st.tabs(projects)
+    
+    for i, project in enumerate(projects):
+        with project_tabs[i]:
+            project_df = df[df['Project'] == project]
+            
+            # 1. 오믹스 조합별 환자수 요약
+            st.markdown('<div class="sub-header">오믹스 조합별 환자 수</div>', unsafe_allow_html=True)
+            
+            # 각 환자별로 가진 오믹스 종류 파악
+            patient_omics = {}
+            for patient_id in project_df['PatientID'].unique():
+                patient_data = project_df[project_df['PatientID'] == patient_id]
+                patient_omics[patient_id] = sorted(patient_data['Omics'].unique())
+            
+            # 오믹스 조합별 환자수 계산
+            omics_combinations = {}
+            for patient_id, omics_list in patient_omics.items():
+                combination = " + ".join(omics_list)
+                if combination in omics_combinations:
+                    omics_combinations[combination] += 1
+                else:
+                    omics_combinations[combination] = 1
+            
+            # 결과 데이터프레임 변환
+            combinations_df = pd.DataFrame([
+                {"오믹스 조합": combo, "환자 수": count}
+                for combo, count in omics_combinations.items()
+            ]).sort_values(by="환자 수", ascending=False)
+            
+            st.dataframe(combinations_df, use_container_width=True)
+            
+            # 2. 오믹스 및 조직 선택 UI
+            st.markdown('<div class="sub-header">선택된 오믹스 조합 현황</div>', unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                available_omics = sorted(project_df['Omics'].unique())
+                selected_omics = st.multiselect(
+                    "오믹스 선택",
+                    options=available_omics,
+                    default=available_omics[0] if available_omics else None
+                )
+            
+            with col2:
+                if selected_omics:
+                    available_tissues = sorted(project_df[project_df['Omics'].isin(selected_omics)]['Tissue'].unique())
+                    selected_tissues = st.multiselect(
+                        "조직 선택",
+                        options=available_tissues,
+                        default=available_tissues[0] if available_tissues else None
                     )
+                else:
+                    available_tissues = []
+                    selected_tissues = []
+                    st.text("먼저 오믹스를 선택해주세요")
+            
+            # 선택된 조건에 맞는 환자 및 샘플 표시
+            if selected_omics and selected_tissues:
+                filtered_df = project_df[
+                    (project_df['Omics'].isin(selected_omics)) & 
+                    (project_df['Tissue'].isin(selected_tissues))
+                ]
                 
-                with col2:
-                    if selected_omics:
-                        available_tissues = sorted(project_df[project_df['Omics'].isin(selected_omics)]['Tissue'].unique())
-                        selected_tissues = st.multiselect(
-                            "조직 선택",
-                            options=available_tissues,
-                            default=available_tissues[0] if available_tissues else None
-                        )
-                    else:
-                        available_tissues = []
-                        selected_tissues = []
-                        st.text("먼저 오믹스를 선택해주세요")
+                # 환자 수 계산
+                patient_count = filtered_df['PatientID'].nunique()
+                st.markdown(f"**선택된 조건에 맞는 환자수:** {patient_count}")
                 
-                # 선택된 조건에 맞는 환자 및 샘플 표시
-                if selected_omics and selected_tissues:
-                    filtered_df = project_df[
-                        (project_df['Omics'].isin(selected_omics)) & 
-                        (project_df['Tissue'].isin(selected_tissues))
-                    ]
-                    
-                    # 환자 수 계산
-                    patient_count = filtered_df['PatientID'].nunique()
-                    st.markdown(f"**선택된 조건에 맞는 환자수:** {patient_count}")
-                    
-                    # Visit별, 오믹스별, 조직별 환자수 계산
-                    st.markdown('<div class="sub-header">Visit별 환자수</div>', unsafe_allow_html=True)
-                    
-                    pivot_df = pd.pivot_table(
-                        filtered_df,
-                        values='PatientID',
-                        index=['Visit'],
-                        columns=['Omics', 'Tissue'],
-                        aggfunc=lambda x: len(pd.unique(x)),
-                        fill_value=0
-                    )
-                    
-                    st.dataframe(pivot_df, use_container_width=True)
-                    
-                    # 환자별 샘플 ID 데이터 생성
-                    st.markdown('<div class="sub-header">환자별 샘플 ID</div>', unsafe_allow_html=True)
-                    
-                    sample_data = []
-                    for pid in sorted(filtered_df['PatientID'].unique()):
-                        visits_for_pid = sorted(filtered_df[filtered_df['PatientID'] == pid]['Visit'].unique())
-                        for visit in visits_for_pid:
-                            patient_visit_data = filtered_df[
-                                (filtered_df['PatientID'] == pid) & 
-                                (filtered_df['Visit'] == visit)
-                            ]
-                            row_data = {
-                                'PatientID': pid,
-                                'Visit': visit,
-                                'Date': patient_visit_data['Date'].min()
-                            }
-                            
-                            # 각 오믹스-조직 조합별 샘플 ID 추가
-                            for omics in selected_omics:
-                                for tissue in selected_tissues:
-                                    sample = patient_visit_data[
-                                        (patient_visit_data['Omics'] == omics) & 
-                                        (patient_visit_data['Tissue'] == tissue)
-                                    ]
-                                    if not sample.empty:
-                                        row_data[f"{omics}_{tissue}_SampleID"] = sample['SampleID'].values[0]
-                                    else:
-                                        row_data[f"{omics}_{tissue}_SampleID"] = None
-                            
-                            sample_data.append(row_data)
-                    
-                    sample_df = pd.DataFrame(sample_data)
-                    
-                    st.dataframe(sample_df, use_container_width=True)
-                    
-                    # 샘플 데이터 다운로드
-                    st.markdown(
-                        get_file_download_link(
-                            sample_df,
-                            f"project_{project}_samples.xlsx",
-                            "📥 선택된 샘플 데이터 다운로드"
-                        ),
-                        unsafe_allow_html=True
-                    )
-                    
-                    # 샘플 파일 경로 표시
-                    if not sample_df.empty:
-                        st.markdown('<div class="sub-header">샘플 파일 경로</div>', unsafe_allow_html=True)
-                        st.info("아래는 선택한 샘플의 파일 경로입니다. 경로를 클릭하면 복사할 수 있습니다.")
+                # Visit별, 오믹스별, 조직별 환자수 계산
+                st.markdown('<div class="sub-header">Visit별 환자수</div>', unsafe_allow_html=True)
+                
+                pivot_df = pd.pivot_table(
+                    filtered_df,
+                    values='PatientID',
+                    index=['Visit'],
+                    columns=['Omics', 'Tissue'],
+                    aggfunc=lambda x: len(pd.unique(x)),
+                    fill_value=0
+                )
+                
+                st.dataframe(pivot_df, use_container_width=True)
+                
+                # 환자별 샘플 ID 데이터 생성
+                st.markdown('<div class="sub-header">환자별 샘플 ID</div>', unsafe_allow_html=True)
+                
+                sample_data = []
+                for pid in sorted(filtered_df['PatientID'].unique()):
+                    visits_for_pid = sorted(filtered_df[filtered_df['PatientID'] == pid]['Visit'].unique())
+                    for visit in visits_for_pid:
+                        patient_visit_data = filtered_df[
+                            (filtered_df['PatientID'] == pid) & 
+                            (filtered_df['Visit'] == visit)
+                        ]
+                        row_data = {
+                            'PatientID': pid,
+                            'Visit': visit,
+                            'Date': patient_visit_data['Date'].min()
+                        }
                         
-                        sample_paths = get_sample_paths(filtered_df)
-                        for pid in sorted(filtered_df['PatientID'].unique()):
-                            st.markdown(f"**환자 ID: {pid}**")
-                            pid_visits = sorted(filtered_df[filtered_df['PatientID'] == pid]['Visit'].unique())
-                            
-                            for visit in pid_visits:
-                                st.markdown(f"*Visit: {visit}*")
-                                for omics in selected_omics:
-                                    for tissue in selected_tissues:
-                                        key = f"{pid}_{visit}_{omics}_{tissue}"
-                                        if key in sample_paths:
-                                            path = sample_paths[key]
-                                            st.markdown(
-                                                f"""
-                                                <div class="file-path">
-                                                    <span class="file-path-text">{path}</span>
-                                                    <button class="copy-button" onclick="navigator.clipboard.writeText('{path}')">
-                                                        복사
-                                                    </button>
-                                                </div>
-                                                """,
-                                                unsafe_allow_html=True
-                                            )
+                        # 각 오믹스-조직 조합별 샘플 ID 추가
+                        for omics in selected_omics:
+                            for tissue in selected_tissues:
+                                sample = patient_visit_data[
+                                    (patient_visit_data['Omics'] == omics) & 
+                                    (patient_visit_data['Tissue'] == tissue)
+                                ]
+                                if not sample.empty:
+                                    row_data[f"{omics}_{tissue}_SampleID"] = sample['SampleID'].values[0]
+                                else:
+                                    row_data[f"{omics}_{tissue}_SampleID"] = None
+                        
+                        sample_data.append(row_data)
+                
+                sample_df = pd.DataFrame(sample_data)
+                
+                st.dataframe(sample_df, use_container_width=True)
+                
+                # 샘플 데이터 다운로드
+                st.markdown(
+                    get_file_download_link(
+                        sample_df,
+                        f"project_{project}_samples.xlsx",
+                        "📥 선택된 샘플 데이터 다운로드"
+                    ),
+                    unsafe_allow_html=True
+                )
+                
 
 #############################################
 # 데이터 관리 페이지
