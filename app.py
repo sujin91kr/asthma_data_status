@@ -145,15 +145,6 @@ st.markdown("""
         border-radius: 4px;
     }
 </style>
-<script>
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(function() {
-        alert("경로가 클립보드에 복사되었습니다!");
-    }, function() {
-        alert("복사에 실패했습니다!");
-    });
-}
-</script>
 """, unsafe_allow_html=True)
 
 #############################################
@@ -171,6 +162,7 @@ def init_users():
                 "is_admin": False
             }
         }
+        os.makedirs(os.path.dirname(USER_FILE), exist_ok=True)  # 디렉토리 확인 추가
         with open(USER_FILE, 'w') as f:
             json.dump(default_users, f)
 
@@ -181,6 +173,7 @@ def load_users():
     return {}
 
 def save_users(users):
+    os.makedirs(os.path.dirname(USER_FILE), exist_ok=True)  # 디렉토리 확인 추가
     with open(USER_FILE, 'w') as f:
         json.dump(users, f)
 
@@ -216,6 +209,9 @@ def load_data():
     return None
 
 def get_invalid_data(df):
+    if df is None or df.empty:
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        
     # 유효하지 않은 Visit 체크
     invalid_visit = df[~df['Visit'].isin(VALID_VISITS)].copy()
     
@@ -228,7 +224,8 @@ def get_invalid_data(df):
             invalid_omics_tissue_rows.append(row)
         elif tissue not in VALID_OMICS_TISSUE.get(omics, []):
             invalid_omics_tissue_rows.append(row)
-    invalid_omics_tissue = pd.DataFrame(invalid_omics_tissue_rows)
+    
+    invalid_omics_tissue = pd.DataFrame(invalid_omics_tissue_rows) if invalid_omics_tissue_rows else pd.DataFrame()
     
     # 유효하지 않은, 존재하지 않는 Project 체크
     invalid_project = df[~df['Project'].isin(VALID_PROJECTS)].copy()
@@ -240,9 +237,15 @@ def get_invalid_data(df):
     return invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data
 
 def get_valid_data(df):
+    if df is None or df.empty:
+        return pd.DataFrame()
+        
     # 유효한 데이터만 필터링
     valid_df = df[(df['Visit'].isin(VALID_VISITS)) &
                   (df['Project'].isin(VALID_PROJECTS))].copy()
+    
+    if valid_df.empty:
+        return pd.DataFrame()
     
     # Omics-Tissue 유효성 검사
     valid_rows = []
@@ -253,7 +256,10 @@ def get_valid_data(df):
             if tissue in VALID_OMICS_TISSUE.get(omics, []):
                 valid_rows.append(row)
     
-    valid_df = pd.DataFrame(valid_rows)
+    valid_df = pd.DataFrame(valid_rows) if valid_rows else pd.DataFrame()
+    
+    if valid_df.empty:
+        return pd.DataFrame()
     
     # 중복 제거 (첫 번째 항목 유지)
     valid_df = valid_df.drop_duplicates(subset=['PatientID', 'Visit', 'Omics', 'Tissue'], keep='first')
@@ -284,6 +290,10 @@ def get_sample_paths(df):
     여기서는 예시로 /data/Project/PatientID/Visit/Omics/Tissue/SampleID 구조로 생성
     """
     sample_paths = {}
+    
+    if df is None or df.empty:
+        return sample_paths
+        
     for _, row in df.iterrows():
         path = f"/data/{row['Project']}/{row['PatientID']}/{row['Visit']}/{row['Omics']}/{row['Tissue']}/{row['SampleID']}"
         key = f"{row['PatientID']}_{row['Visit']}_{row['Omics']}_{row['Tissue']}"
@@ -292,6 +302,9 @@ def get_sample_paths(df):
 
 def get_file_download_link(df, filename, link_text):
     """데이터프레임을 다운로드 가능한 엑셀 링크로 변환"""
+    if df is None or df.empty:
+        return "데이터가 없습니다."
+        
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False)
@@ -326,7 +339,7 @@ def login_page():
                     st.session_state.authenticated = True
                     st.session_state.is_admin = is_admin
                     st.session_state.username = username
-                    st.experimental_rerun()
+                    st.rerun()  # experimental_rerun 대신 rerun 사용
                 else:
                     st.error("로그인 실패: 사용자 이름 또는 비밀번호가 잘못되었습니다.")
             else:
@@ -352,7 +365,7 @@ def main_page():
         if st.button("로그아웃"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
-            st.experimental_rerun()
+            st.rerun()  # experimental_rerun 대신 rerun 사용
 
     # 메뉴 구성
     menu_options = {
@@ -367,7 +380,7 @@ def main_page():
     for menu_title, page_name in menu_options.items():
         if st.sidebar.button(menu_title, key=f"menu_{page_name}"):
             st.session_state.page = page_name
-            st.experimental_rerun()
+            st.rerun()  # experimental_rerun 대신 rerun 사용
     
     # 푸터
     st.markdown(
@@ -386,7 +399,7 @@ def view_data_ind_dashboard():
     st.markdown('<div class="sub-header">오믹스 데이터 현황</div>', unsafe_allow_html=True)
     
     df = load_data()
-    if df is None:
+    if df is None or df.empty:
         st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
         return
     
@@ -410,6 +423,10 @@ def view_data_ind_dashboard():
         st.markdown('<div class="sub-header">코호트 - 오믹스 - Visit 환자수</div>', unsafe_allow_html=True)
         
         projects = sorted(df['Project'].unique())
+        if not projects:
+            st.warning("프로젝트 데이터가 없습니다.")
+            return
+            
         project_tabs = st.tabs(projects)
         
         for i, project in enumerate(projects):
@@ -420,16 +437,26 @@ def view_data_ind_dashboard():
                 omics_list = sorted(project_df['Omics'].unique())
                 visit_list = sorted(project_df['Visit'].unique())
                 
+                if not omics_list or not visit_list:
+                    st.warning(f"{project} 프로젝트에 데이터가 없습니다.")
+                    continue
+                
                 # 데이터 준비
                 result_data = []
                 for omics in omics_list:
                     row_data = {'Omics': omics}
+                    # 모든 visit에 대해 미리 0으로 초기화
+                    for visit in visit_list:
+                        row_data[visit] = 0
+                    
+                    # 실제 데이터로 업데이트
                     for visit in visit_list:
                         patient_count = project_df[
                             (project_df['Omics'] == omics) & 
                             (project_df['Visit'] == visit)
                         ]['PatientID'].nunique()
                         row_data[visit] = patient_count
+                    
                     # 전체 Visit에 대한 환자수 (중복 제거)
                     row_data['Total'] = project_df[project_df['Omics'] == omics]['PatientID'].nunique()
                     result_data.append(row_data)
@@ -461,6 +488,10 @@ def view_data_ind_dashboard():
         st.markdown('<div class="sub-header">오믹스 - 코호트 - Visit 환자수</div>', unsafe_allow_html=True)
         
         omics_list = sorted(df['Omics'].unique())
+        if not omics_list:
+            st.warning("오믹스 데이터가 없습니다.")
+            return
+            
         omics_tabs = st.tabs(omics_list)
         
         for i, omics in enumerate(omics_list):
@@ -471,16 +502,26 @@ def view_data_ind_dashboard():
                 projects = sorted(omics_df['Project'].unique())
                 visit_list = sorted(omics_df['Visit'].unique())
                 
+                if not projects or not visit_list:
+                    st.warning(f"{omics} 오믹스에 데이터가 없습니다.")
+                    continue
+                
                 # 데이터 준비
                 result_data = []
                 for project in projects:
                     row_data = {'Project': project}
+                    # 모든 visit에 대해 미리 0으로 초기화
+                    for visit in visit_list:
+                        row_data[visit] = 0
+                        
+                    # 실제 데이터로 업데이트
                     for visit in visit_list:
                         patient_count = omics_df[
                             (omics_df['Project'] == project) & 
                             (omics_df['Visit'] == visit)
                         ]['PatientID'].nunique()
                         row_data[visit] = patient_count
+                    
                     # 전체 Visit에 대한 환자수
                     row_data['Total'] = omics_df[omics_df['Project'] == project]['PatientID'].nunique()
                     result_data.append(row_data)
@@ -511,8 +552,10 @@ def view_data_ind_dashboard():
 # 오믹스 조합 현황 페이지
 #############################################
 def view_data_comb_dashboard():
+    st.markdown('<div class="sub-header">오믹스 조합 현황</div>', unsafe_allow_html=True)
+    
     df = load_data()
-    if df is None:
+    if df is None or df.empty:
         st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
         return
     
@@ -526,12 +569,20 @@ def view_data_comb_dashboard():
         st.metric("총 샘플 수", len(df))
 
     projects = sorted(df['Project'].unique())
+    if not projects:
+        st.warning("프로젝트 데이터가 없습니다.")
+        return
+        
     project_tabs = st.tabs(projects)
     
     for i, project in enumerate(projects):
         with project_tabs[i]:
             project_df = df[df['Project'] == project]
             
+            if project_df.empty:
+                st.warning(f"{project} 프로젝트에 데이터가 없습니다.")
+                continue
+                
             # 1. 오믹스 조합별 환자수 요약
             st.markdown('<div class="sub-header">오믹스 조합별 환자 수</div>', unsafe_allow_html=True)
             
@@ -561,10 +612,16 @@ def view_data_comb_dashboard():
             # 2. 오믹스 및 조직 선택 UI
             st.markdown('<div class="sub-header">선택된 오믹스 조합 현황</div>', unsafe_allow_html=True)
 
+            # 프로젝트의 유효한 오믹스 항목 확인
+            available_omics = sorted(project_df['Omics'].unique())
+            if not available_omics:
+                st.warning(f"{project} 프로젝트에 오믹스 데이터가 없습니다.")
+                continue
+
             selected_omics = st.multiselect(
                 label="오믹스 선택 (하단에 해당 조직 자동 생성됨)",
-                options=sorted(project_df['Omics'].unique()),
-                default=sorted(project_df['Omics'].unique()),
+                options=available_omics,
+                default=available_omics,
                 key=f"omics_select_{project}"
             )
 
@@ -583,50 +640,74 @@ def view_data_comb_dashboard():
             # 필터링된 환자 및 샘플 정보
             filtered_df = pd.DataFrame()
             for omics, tissues in selected_tissues_dict.items():
-                sub_df = project_df[(project_df['Omics'] == omics) & (project_df['Tissue'].isin(tissues))]
-                filtered_df = pd.concat([filtered_df, sub_df], ignore_index=True)
+                if tissues:  # 빈 목록이 아닌 경우에만 필터링
+                    sub_df = project_df[(project_df['Omics'] == omics) & (project_df['Tissue'].isin(tissues))]
+                    filtered_df = pd.concat([filtered_df, sub_df], ignore_index=True)
 
             if not filtered_df.empty:
                 st.markdown(f"**선택된 조건에 맞는 환자 수:** {filtered_df['PatientID'].nunique()}명")
 
-                pivot_df = pd.pivot_table(
-                    filtered_df,
-                    values='PatientID',
-                    index=['Visit'],
-                    columns=['Omics', 'Tissue'],
-                    aggfunc=lambda x: len(set(x)),
-                    fill_value=0
-                )
-                st.dataframe(pivot_df, use_container_width=True)
+                # 피벗 테이블 생성 시 예외 처리 추가
+                try:
+                    pivot_df = pd.pivot_table(
+                        filtered_df,
+                        values='PatientID',
+                        index=['Visit'],
+                        columns=['Omics', 'Tissue'],
+                        aggfunc=lambda x: len(set(x)),
+                        fill_value=0
+                    )
+                    st.dataframe(pivot_df, use_container_width=True)
+                except Exception as e:
+                    st.error(f"피벗 테이블 생성 중 오류가 발생했습니다: {e}")
 
                 st.markdown('<div class="sub-header">환자별 샘플 ID</div>', unsafe_allow_html=True)
                 sample_data = []
+                
+                # 환자별 샘플 ID 정보 수집
                 for pid in sorted(filtered_df['PatientID'].unique()):
                     patient_df = filtered_df[filtered_df['PatientID'] == pid]
                     for visit in sorted(patient_df['Visit'].unique()):
                         visit_df = patient_df[patient_df['Visit'] == visit]
                         row = {'PatientID': pid, 'Visit': visit, 'Date': visit_df['Date'].min()}
+                        
+                        # 각 오믹스-조직 조합별 샘플 ID 추가
                         for omics in selected_omics:
                             for tissue in selected_tissues_dict.get(omics, []):
-                                sample_id = visit_df[
-                                    (visit_df['Omics'] == omics) & (visit_df['Tissue'] == tissue)
-                                ]['SampleID']
-                                row[f"{omics}_{tissue}_SampleID"] = sample_id.values[0] if not sample_id.empty else None
+                                key = f"{omics}_{tissue}_SampleID"
+                                # 해당 오믹스-조직 조합의 샘플이 있는지 확인 후 추가
+                                sample_df = visit_df[(visit_df['Omics'] == omics) & (visit_df['Tissue'] == tissue)]
+                                if not sample_df.empty:
+                                    row[key] = sample_df['SampleID'].values[0]
+                                else:
+                                    row[key] = None  # 샘플이 없는 경우 None으로 설정
+                        
                         sample_data.append(row)
 
-                sample_df = pd.DataFrame(sample_data)
-                st.dataframe(sample_df, use_container_width=True)
+                if sample_data:
+                    sample_df = pd.DataFrame(sample_data)
+                    st.dataframe(sample_df, use_container_width=True)
 
-                st.markdown(
-                    get_file_download_link(
-                        sample_df,
-                        f"project_{project}_selected_samples.xlsx",
-                        "\U0001F4E5 선택된 샘플 데이터 다운로드"
-                    ),
-                    unsafe_allow_html=True
-                )
+                    # 데이터 다운로드 링크 제공
+                    st.markdown(
+                        get_file_download_link(
+                            sample_df,
+                            f"project_{project}_selected_samples.xlsx",
+                            "\U0001F4E5 선택된 샘플 데이터 다운로드"
+                        ),
+                        unsafe_allow_html=True
+                    )
+                else:
+                    st.warning("선택된 조건에 맞는 샘플 데이터가 없습니다.")
             else:
-                st.warning("선택된 조건에 해당하는 데이터가 없습니다.")         
+                st.warning("선택된 조건에 해당하는 데이터가 없습니다.")  
+
+#############################################
+# 샘플 ID 리스트 페이지
+#############################################
+def view_data_id_list():
+    st.markdown('<div class="sub-header">샘플 ID 리스트</div>', unsafe_allow_html=True)
+    st.info("샘플 ID 리스트 페이지는 준비 중입니다.")
 
 #############################################
 # 데이터 관리 페이지
@@ -634,20 +715,12 @@ def view_data_comb_dashboard():
 def view_data_management():
     st.markdown('<div class="sub-header">데이터 관리</div>', unsafe_allow_html=True)
     
-    # 전체 데이터 다운로드 버튼
-    df = load_data()
-    if df is not None:
-        st.markdown(
-            get_file_download_link(
-                df,
-                "clinical_data_full.xlsx",
-                "📥 전체 데이터 엑셀 다운로드"
-            ),
-            unsafe_allow_html=True
-        )
+    # 관리자가 아닌 경우 접근 제한
+    if not st.session_state.get("is_admin", False):
+        st.error("관리자 권한이 필요한 페이지입니다.")
+        return
     
-    # 데이터 유효성 검사 결과
-    data_validation()
+    admin_settings()
 
 def data_validation():
     st.markdown('<div class="sub-header">데이터 유효성 검사</div>', unsafe_allow_html=True)
@@ -674,10 +747,7 @@ def data_validation():
             """, unsafe_allow_html=True
         )
     with col2:
-        if invalid_omics_tissue is not None and not invalid_omics_tissue.empty:
-            is_valid_omics_tissue = False
-        else:
-            is_valid_omics_tissue = True
+        is_valid_omics_tissue = len(invalid_omics_tissue) == 0
         
         st.markdown(
             f"""
@@ -715,7 +785,7 @@ def data_validation():
     col5, col6 = st.columns(2)
     with col5:
         total_records = len(df)
-        valid_records = len(valid_df) if valid_df is not None else 0
+        valid_records = len(valid_df) if not valid_df.empty else 0
         st.metric("유효한 레코드 / 전체 레코드", f"{valid_records} / {total_records}")
     with col6:
         valid_percent = (valid_records / total_records * 100) if total_records > 0 else 0
@@ -740,7 +810,7 @@ def data_validation():
                 valid_combinations.append({"Omics": omics, "Tissue": tissue})
         st.dataframe(pd.DataFrame(valid_combinations), use_container_width=True)
         
-        if invalid_omics_tissue is not None and not invalid_omics_tissue.empty:
+        if len(invalid_omics_tissue) > 0:
             st.error("유효하지 않은 Omics-Tissue 조합:")
             st.dataframe(invalid_omics_tissue, use_container_width=True)
         else:
@@ -777,13 +847,16 @@ def admin_settings():
         
         if uploaded_file is not None:
             if st.button("파일 업로드"):
-                # 파일 저장
-                save_uploaded_file(uploaded_file)
-                st.success(f"파일이 성공적으로 업로드되었습니다: {uploaded_file.name}")
-                
-                # 데이터 유효성 검사
-                st.markdown("### 업로드된 데이터 유효성 검사")
-                data_validation()
+                try:
+                    # 파일 저장
+                    save_uploaded_file(uploaded_file)
+                    st.success(f"파일이 성공적으로 업로드되었습니다: {uploaded_file.name}")
+                    
+                    # 데이터 유효성 검사
+                    st.markdown("### 업로드된 데이터 유효성 검사")
+                    data_validation()
+                except Exception as e:
+                    st.error(f"파일 업로드 중 오류가 발생했습니다: {e}")
     
     # 사용자 관리 탭
     with admin_tabs[1]:
@@ -792,14 +865,17 @@ def admin_settings():
         users = load_users()
         
         # 사용자 목록 표시
-        user_data = []
-        for username, user_info in users.items():
-            user_data.append({
-                "사용자명": username,
-                "권한": "관리자" if user_info["is_admin"] else "일반 사용자"
-            })
-        user_df = pd.DataFrame(user_data)
-        st.dataframe(user_df, use_container_width=True)
+        if users:
+            user_data = []
+            for username, user_info in users.items():
+                user_data.append({
+                    "사용자명": username,
+                    "권한": "관리자" if user_info.get("is_admin", False) else "일반 사용자"
+                })
+            user_df = pd.DataFrame(user_data)
+            st.dataframe(user_df, use_container_width=True)
+        else:
+            st.warning("사용자 정보를 불러올 수 없습니다.")
         
         # 새 사용자 추가
         st.markdown("### 새 사용자 추가")
@@ -820,16 +896,20 @@ def admin_settings():
                         "password": hashlib.sha256(new_password.encode()).hexdigest(),
                         "is_admin": is_admin
                     }
-                    save_users(users)
-                    st.success(f"사용자 '{new_username}'가 추가되었습니다.")
-                    st.experimental_rerun()
+                    try:
+                        save_users(users)
+                        st.success(f"사용자 '{new_username}'가 추가되었습니다.")
+                        st.rerun()  # experimental_rerun 대신 rerun 사용
+                    except Exception as e:
+                        st.error(f"사용자 추가 중 오류가 발생했습니다: {e}")
             else:
                 st.warning("사용자명과 비밀번호를 모두 입력해주세요.")
         
         # 사용자 삭제
         st.markdown("### 사용자 삭제")
         
-        deletable_users = [u for u in users.keys() if u != st.session_state.username]
+        current_username = st.session_state.get("username", "")
+        deletable_users = [u for u in users.keys() if u != current_username]
         if len(deletable_users) == 0:
             st.warning("삭제할 수 있는 다른 사용자가 없습니다.")
         else:
@@ -837,10 +917,13 @@ def admin_settings():
             
             if st.button("사용자 삭제"):
                 if user_to_delete:
-                    del users[user_to_delete]
-                    save_users(users)
-                    st.success(f"사용자 '{user_to_delete}'가 삭제되었습니다.")
-                    st.experimental_rerun()
+                    try:
+                        del users[user_to_delete]
+                        save_users(users)
+                        st.success(f"사용자 '{user_to_delete}'가 삭제되었습니다.")
+                        st.rerun()  # experimental_rerun 대신 rerun 사용
+                    except Exception as e:
+                        st.error(f"사용자 삭제 중 오류가 발생했습니다: {e}")
     
     # 시스템 설정 탭
     with admin_tabs[2]:
@@ -873,12 +956,15 @@ def admin_settings():
 # 메인 실행 부분
 #############################################
 def main():
+    # 사용자 정보 초기화
     init_users()
 
+    # 세션 상태 초기화
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
         st.session_state.is_admin = False
         st.session_state.page = "login"
+        st.session_state.username = ""
 
     if not st.session_state.authenticated:
         login_page()
@@ -896,7 +982,7 @@ def main():
         for menu_title, page_name in menu_options.items():
             if st.sidebar.button(menu_title, key=f"menu_{page_name}"):
                 st.session_state.page = page_name
-                st.experimental_rerun()
+                st.rerun()  # experimental_rerun 대신 rerun 사용
 
         # 기본적으로 설정된 페이지로 라우팅
         page = st.session_state.get("page", "data_ind_dashboard")
@@ -906,11 +992,11 @@ def main():
         elif page == "data_comb_dashboard":
             view_data_comb_dashboard()
         elif page == "data_id_list":
-            st.info("샘플 ID 리스트 페이지는 준비 중입니다.")
-        elif page == "data_management":
+            view_data_id_list()
+        elif page == "data_management" and st.session_state.is_admin:
             view_data_management()
         else:
-            st.error("알 수 없는 페이지입니다.")
+            st.error("알 수 없는 페이지이거나 접근 권한이 없습니다.")
 
 
 if __name__ == "__main__":
