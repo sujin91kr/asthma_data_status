@@ -17,15 +17,18 @@ DATA_FILE = "data/clinical_data.xlsx"
 USER_FILE = "data/users.json"
 
 VALID_VISITS = ["V1", "V2", "V3", "V4", "V5"]
-VALID_OMICS = ["SNP", "Methylation", "RNA", "Proteomics", "Metabolomics"]
-VALID_TISSUES = ["Blood", "Urine", "Tissue", "Stool"]
-VALID_PROJECTS = ["Project A", "Project B", "Project C"]
+VALID_OMICS = ["Bulk Exome RNA-seq", "Bulk Total RNA-seq", "Metabolites", "SNP", "Methylation", "miRNA", "Protein", "scRNA-seq"]
+VALID_TISSUES = ["PAXgene", "PBMC", "Bronchial biopsy", "Nasal cell", "Sputum", "Plasma", "Urine", "Whole blood", "Serum", "Bronchial BAL"]
+VALID_PROJECTS = ["COREA", "PRISM", "PRISMUK"]
 VALID_OMICS_TISSUE = {
-    "SNP": ["Blood"],
-    "Methylation": ["Blood", "Tissue"],
-    "RNA": ["Blood", "Tissue"],
-    "Proteomics": ["Blood", "Urine"],
-    "Metabolomics": ["Blood", "Urine", "Stool"]
+    "Bulk Exome RNA-seq": ["PAXgene", "PBMC"],
+    "Bulk Total RNA-seq": ["Bronchial biopsy", "Nasal cell", "Sputum"],
+    "Metabolites": ["Plasma", "Urine"],
+    "Methylation": ["Whole blood"],
+    "miRNA": ["Serum"],
+    "Protein": ["Plasma", "Serum"],
+    "scRNA-seq": ["Whole blood", "Bronchial biopsy", "Bronchial BAL"],
+    "SNP": ["Whole blood"]
 }
 
 # 디렉토리 생성
@@ -33,7 +36,7 @@ os.makedirs("data", exist_ok=True)
 
 # 페이지 설정
 st.set_page_config(
-    page_title="임상 데이터 관리 시스템",
+    page_title="COREA | PRISM Omics Data Status",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded"
