@@ -269,7 +269,7 @@ def save_uploaded_file(uploaded_file):
         with open(CONFIG_FILE, 'r') as f:
             config = json.load(f)
     
-    config['last_update'] = datetime.now(tzinfo=KST).strftime("%Y-%m-%d %H:%M:%S")
+    config['last_update'] = datetime.now(datetime.timezone.kst).strftime("%Y-%m-%d %H:%M:%S")
     config['last_updated_by'] = st.session_state.username
     
     with open(CONFIG_FILE, 'w') as f:
