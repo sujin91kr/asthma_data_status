@@ -11,6 +11,9 @@ import json
 import re
 from datetime import datetime
 
+# 타임존 설정 (KST: UTC+9)
+KST = timezone(timedelta(hours=9))
+
 # 설정 및 상수
 CONFIG_FILE = "config.json"
 DATA_FILE = "data/clinical_data.xlsx"
@@ -198,7 +201,7 @@ def load_data():
         try:
             df = pd.read_excel(DATA_FILE)
             # 필수 컬럼 확인
-            required_cols = ["PatientID", "Visit", "Omics", "Tissue", "SampleID", "Date", "Project"]
+            required_cols = ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID", "Date"]
             if not all(col in df.columns for col in required_cols):
                 st.error(f"데이터 파일에 필수 컬럼이 누락되었습니다. 필요한 컬럼: {', '.join(required_cols)}")
                 return None
@@ -301,7 +304,7 @@ def get_file_download_link(df, filename, link_text):
 # 페이지 레이아웃
 #############################################
 def login_page():
-    st.markdown('<div class="main-header">임상 데이터 관리 시스템 로그인</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -333,10 +336,10 @@ def login_page():
         st.markdown("</div>", unsafe_allow_html=True)
 
 def main_page():
-    st.markdown('<div class="main-header">임상 데이터 관리 시스템</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
     
     # 상단 네비게이션
-    col1, col2, col3 = st.columns([6, 3, 1])
+    col1, col2, col3 = st.columns([5, 3, 2])
     with col1:
         st.markdown(f"환영합니다, **{st.session_state.username}**님")
     with col2:
@@ -376,7 +379,7 @@ def main_page():
     st.markdown(
         """
         <div class="footer">
-            © 2025 임상 데이터 관리 시스템 | 개발: AI 기반 임상 데이터 관리팀
+            © 2025 COREA PRISM Omics Data Status | 개발: WonLab
         </div>
         """, 
         unsafe_allow_html=True
