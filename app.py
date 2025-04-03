@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import datetime
 import os
 import io
 import base64
@@ -9,7 +8,10 @@ from PIL import Image
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# 타임존 설정 (KST: UTC+9)
+KST = timezone(timedelta(hours=9))
 
 # 설정 및 상수
 CONFIG_FILE = "config.json"
@@ -17,7 +19,7 @@ DATA_FILE = "data/clinical_data.xlsx"
 USER_FILE = "data/users.json"
 
 VALID_VISITS = ["V1", "V2", "V3", "V4", "V5"]
-VALID_OMICS = ["Bulk Exome RNA-seq", "Bulk Total RNA-seq", "Metabolites", "SNP", "Methylation", "miRNA", "Protein", "scNRA-seq"]
+VALID_OMICS = ["Bulk Exome RNA-seq", "Bulk Total RNA-seq", "Metabolites", "SNP", "Methylation", "miRNA", "Protein", "scRNA-seq"]
 VALID_TISSUES = ["PAXgene", "PBMC", "Bronchial biopsy", "Nasal cell", "Sputum", "Plasma", "Urine", "Whole blood", "Serum", "Bronchial BAL"]
 VALID_PROJECTS = ["COREA", "PRISM", "PRISMUK"]
 VALID_OMICS_TISSUE = {
@@ -269,7 +271,7 @@ def save_uploaded_file(uploaded_file):
         with open(CONFIG_FILE, 'r') as f:
             config = json.load(f)
     
-    config['last_update'] = datetime.now(datetime.timezone.kst).strftime("%Y-%m-%d %H:%M:%S")
+    config['last_update'] = datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
     config['last_updated_by'] = st.session_state.username
     
     with open(CONFIG_FILE, 'w') as f:
@@ -376,7 +378,6 @@ def main_page():
         """, 
         unsafe_allow_html=True
     )
-
 
 #############################################
 # 오믹스 개별 현황 페이지
@@ -506,12 +507,10 @@ def view_data_ind_dashboard():
                     unsafe_allow_html=True
                 )
 
-
 #############################################
 # 오믹스 조합 현황 페이지
 #############################################
 def view_data_comb_dashboard():
-
     df = load_data()
     if df is None:
         st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
@@ -581,7 +580,7 @@ def view_data_comb_dashboard():
                     )
                     selected_tissues_dict[omics] = selected
                     
-             # 필터링된 환자 및 샘플 정보
+            # 필터링된 환자 및 샘플 정보
             filtered_df = pd.DataFrame()
             for omics, tissues in selected_tissues_dict.items():
                 sub_df = project_df[(project_df['Omics'] == omics) & (project_df['Tissue'].isin(tissues))]
@@ -916,4 +915,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-        
