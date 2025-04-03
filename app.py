@@ -36,7 +36,7 @@ os.makedirs("data", exist_ok=True)
 
 # 페이지 설정
 st.set_page_config(
-    page_title="COREA | PRISM Omics Data",
+    page_title="COREA | PRISM Omics Data Status",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -301,7 +301,7 @@ def get_file_download_link(df, filename, link_text):
 # 페이지 레이아웃
 #############################################
 def login_page():
-    st.markdown('<div class="main-header">임상 데이터 관리 시스템 로그인</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">**Login** COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
