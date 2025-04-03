@@ -363,7 +363,7 @@ def main_page():
         menu_options.update({"관리자 설정": "data_management"})
 
     for menu_title, page_name in menu_options.items():
-        if st.sidebar.buttion(menu_title, key=f"menu_{page_name}"):
+        if st.sidebar.button(menu_title, key=f"menu_{page_name}"):
             st.session_state.page = page_name
             st.experimental_rerun()
     
