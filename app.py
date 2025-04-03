@@ -881,12 +881,22 @@ def main():
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
         st.session_state.is_admin = False
-    
-    # 로그인 화면 또는 메인 페이지 표시
-    if st.session_state.authenticated:
-        main_page()
-    else:
+        st.session_state.page = "login"
+
+    if not st.session_state.authenticated:
         login_page()
+    else:
+        page = st.session_state.get("page", "data_ind_dashboard")
+        if page == "data_ind_dashboard":
+            view_data_ind_dashboard()
+        elif page == "data_comb_dashboard":
+            view_data_comb_dashboard()
+        elif page == "data_id_list":
+            st.info("샘플 ID 리스트 페이지 준비 중입니다.")
+        elif page == "data_management":
+            view_data_management()
+        else:
+            st.error("페이지를 찾을 수 없습니다.")
 
 if __name__ == "__main__":
     main()
