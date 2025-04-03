@@ -561,99 +561,73 @@ def view_data_comb_dashboard():
             
             # 2. 오믹스 및 조직 선택 UI
             st.markdown('<div class="sub-header">선택된 오믹스 조합 현황</div>', unsafe_allow_html=True)
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                available_omics = sorted(project_df['Omics'].unique())
-                selected_omics = st.multiselect(
-                    "오믹스 선택",
-                    options=available_omics,
-                    default=available_omics[0] if available_omics else None
-                )
-            
-            with col2:
-                if selected_omics:
-                    available_tissues = sorted(project_df[project_df['Omics'].isin(selected_omics)]['Tissue'].unique())
-                    selected_tissues = st.multiselect(
-                        "조직 선택",
-                        options=available_tissues,
-                        default=available_tissues[0] if available_tissues else None
+
+            selected_omics = st.multiselect(
+                label="오믹스 선택 (하단에 해당 조직 자동 생성됨)",
+                options=sorted(project_df['Omics'].unique()),
+                default=sorted(project_df['Omics'].unique()),
+                key=f"omics_select_{project}"
+            )
+
+            selected_tissues_dict = {}
+            for omics in selected_omics:
+                with st.expander(f"[조직 선택] {omics}", expanded=True):
+                    tissue_options = sorted(project_df[project_df['Omics'] == omics]['Tissue'].unique())
+                    selected = st.multiselect(
+                        label=f"{omics}의 조직 선택",
+                        options=tissue_options,
+                        default=tissue_options,
+                        key=f"tissue_select_{project}_{omics}"
                     )
-                else:
-                    available_tissues = []
-                    selected_tissues = []
-                    st.text("먼저 오믹스를 선택해주세요")
-            
-            # 선택된 조건에 맞는 환자 및 샘플 표시
-            if selected_omics and selected_tissues:
-                filtered_df = project_df[
-                    (project_df['Omics'].isin(selected_omics)) & 
-                    (project_df['Tissue'].isin(selected_tissues))
-                ]
-                
-                # 환자 수 계산
-                patient_count = filtered_df['PatientID'].nunique()
-                st.markdown(f"**선택된 조건에 맞는 환자수:** {patient_count}")
-                
-                # Visit별, 오믹스별, 조직별 환자수 계산
-                st.markdown('<div class="sub-header">Visit별 환자수</div>', unsafe_allow_html=True)
-                
+                    selected_tissues_dict[omics] = selected
+                    
+             # 필터링된 환자 및 샘플 정보
+            filtered_df = pd.DataFrame()
+            for omics, tissues in selected_tissues_dict.items():
+                sub_df = project_df[(project_df['Omics'] == omics) & (project_df['Tissue'].isin(tissues))]
+                filtered_df = pd.concat([filtered_df, sub_df], ignore_index=True)
+
+            if not filtered_df.empty:
+                st.markdown(f"**선택된 조건에 맞는 환자 수:** {filtered_df['PatientID'].nunique()}명")
+
                 pivot_df = pd.pivot_table(
                     filtered_df,
                     values='PatientID',
                     index=['Visit'],
                     columns=['Omics', 'Tissue'],
-                    aggfunc=lambda x: len(pd.unique(x)),
+                    aggfunc=lambda x: len(set(x)),
                     fill_value=0
                 )
-                
                 st.dataframe(pivot_df, use_container_width=True)
-                
-                # 환자별 샘플 ID 데이터 생성
+
                 st.markdown('<div class="sub-header">환자별 샘플 ID</div>', unsafe_allow_html=True)
-                
                 sample_data = []
                 for pid in sorted(filtered_df['PatientID'].unique()):
-                    visits_for_pid = sorted(filtered_df[filtered_df['PatientID'] == pid]['Visit'].unique())
-                    for visit in visits_for_pid:
-                        patient_visit_data = filtered_df[
-                            (filtered_df['PatientID'] == pid) & 
-                            (filtered_df['Visit'] == visit)
-                        ]
-                        row_data = {
-                            'PatientID': pid,
-                            'Visit': visit,
-                            'Date': patient_visit_data['Date'].min()
-                        }
-                        
-                        # 각 오믹스-조직 조합별 샘플 ID 추가
+                    patient_df = filtered_df[filtered_df['PatientID'] == pid]
+                    for visit in sorted(patient_df['Visit'].unique()):
+                        visit_df = patient_df[patient_df['Visit'] == visit]
+                        row = {'PatientID': pid, 'Visit': visit, 'Date': visit_df['Date'].min()}
                         for omics in selected_omics:
-                            for tissue in selected_tissues:
-                                sample = patient_visit_data[
-                                    (patient_visit_data['Omics'] == omics) & 
-                                    (patient_visit_data['Tissue'] == tissue)
-                                ]
-                                if not sample.empty:
-                                    row_data[f"{omics}_{tissue}_SampleID"] = sample['SampleID'].values[0]
-                                else:
-                                    row_data[f"{omics}_{tissue}_SampleID"] = None
-                        
-                        sample_data.append(row_data)
-                
+                            for tissue in selected_tissues_dict.get(omics, []):
+                                sample_id = visit_df[
+                                    (visit_df['Omics'] == omics) & (visit_df['Tissue'] == tissue)
+                                ]['SampleID']
+                                row[f"{omics}_{tissue}_SampleID"] = sample_id.values[0] if not sample_id.empty else None
+                        sample_data.append(row)
+
                 sample_df = pd.DataFrame(sample_data)
-                
                 st.dataframe(sample_df, use_container_width=True)
-                
-                # 샘플 데이터 다운로드
+
                 st.markdown(
                     get_file_download_link(
                         sample_df,
-                        f"project_{project}_samples.xlsx",
-                        "📥 선택된 샘플 데이터 다운로드"
+                        f"project_{project}_selected_samples.xlsx",
+                        "\U0001F4E5 선택된 샘플 데이터 다운로드"
                     ),
                     unsafe_allow_html=True
                 )
-                
+            else:
+                st.warning("선택된 조건에 해당하는 데이터가 없습니다.")         
 
 #############################################
 # 데이터 관리 페이지
