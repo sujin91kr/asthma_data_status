@@ -17,15 +17,18 @@ DATA_FILE = "data/clinical_data.xlsx"
 USER_FILE = "data/users.json"
 
 VALID_VISITS = ["V1", "V2", "V3", "V4", "V5"]
-VALID_OMICS = ["SNP", "Methylation", "RNA", "Proteomics", "Metabolomics"]
-VALID_TISSUES = ["Blood", "Urine", "Tissue", "Stool"]
-VALID_PROJECTS = ["Project A", "Project B", "Project C"]
+VALID_OMICS = ["Bulk Exome RNA-seq", "Bulk Total RNA-seq", "Metabolites", "SNP", "Methylation", "miRNA", "Protein", "scNRA-seq"]
+VALID_TISSUES = ["PAXgene", "PBMC", "Bronchial biopsy", "Nasal cell", "Sputum", "Plasma", "Urine", "Whole blood", "Serum", "Bronchial BAL"]
+VALID_PROJECTS = ["COREA", "PRISM", "PRISMUK"]
 VALID_OMICS_TISSUE = {
-    "SNP": ["Blood"],
-    "Methylation": ["Blood", "Tissue"],
-    "RNA": ["Blood", "Tissue"],
-    "Proteomics": ["Blood", "Urine"],
-    "Metabolomics": ["Blood", "Urine", "Stool"]
+    "Bulk Exome RNA-seq": ["PAXgene", "PBMC"],
+    "Bulk Total RNA-seq": ["Bronchial biopsy", "Nasal cell", "Sputum"],
+    "Metabolites": ["Plasma", "Urine"],
+    "Methylation": ["Whole blood"],
+    "miRNA": ["Serum"],
+    "Protein": ["Plasma", "Serum"],
+    "scRNA-seq": ["Whole blood", "Bronchial biopsy", "Bronchial BAL"],
+    "SNP": ["Whole blood"]
 }
 
 # 디렉토리 생성
@@ -33,7 +36,7 @@ os.makedirs("data", exist_ok=True)
 
 # 페이지 설정
 st.set_page_config(
-    page_title="임상 데이터 관리 시스템",
+    page_title="COREA | PRISM Omics Data",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -195,14 +198,14 @@ def load_data():
         try:
             df = pd.read_excel(DATA_FILE)
             # 필수 컬럼 확인
-            required_cols = ["PatientID", "Visit", "Omics", "Tissue", "SampleID", "Date", "Project"]
+            required_cols = ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID", "Date"]
             if not all(col in df.columns for col in required_cols):
                 st.error(f"데이터 파일에 필수 컬럼이 누락되었습니다. 필요한 컬럼: {', '.join(required_cols)}")
                 return None
             
             # 날짜 형식 변환
             if 'Date' in df.columns:
-                df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+                df['Date'] = pd.to_datetime(df['Date'], errors='coerce', utc=False)
             
             return df
         except Exception as e:
@@ -266,7 +269,7 @@ def save_uploaded_file(uploaded_file):
         with open(CONFIG_FILE, 'r') as f:
             config = json.load(f)
     
-    config['last_update'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    config['last_update'] = datetime.now(tzinfo=KST).strftime("%Y-%m-%d %H:%M:%S")
     config['last_updated_by'] = st.session_state.username
     
     with open(CONFIG_FILE, 'w') as f:
