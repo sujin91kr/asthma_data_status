@@ -15,6 +15,7 @@ from datetime import datetime
 CONFIG_FILE = "config.json"
 DATA_FILE = "data/clinical_data.xlsx"
 USER_FILE = "data/users.json"
+
 VALID_VISITS = ["V1", "V2", "V3", "V4", "V5"]
 VALID_OMICS = ["SNP", "Methylation", "RNA", "Proteomics", "Metabolomics"]
 VALID_TISSUES = ["Blood", "Urine", "Tissue", "Stool"]
@@ -150,7 +151,9 @@ function copyToClipboard(text) {
 </script>
 """, unsafe_allow_html=True)
 
+#############################################
 # 사용자 관리 함수
+#############################################
 def init_users():
     if not os.path.exists(USER_FILE):
         default_users = {
@@ -184,7 +187,9 @@ def authenticate(username, password):
             return True, users[username]["is_admin"]
     return False, False
 
+#############################################
 # 데이터 로딩 및 처리 함수
+#############################################
 def load_data():
     if os.path.exists(DATA_FILE):
         try:
@@ -210,15 +215,15 @@ def get_invalid_data(df):
     invalid_visit = df[~df['Visit'].isin(VALID_VISITS)].copy()
     
     # 유효하지 않은 Omics-Tissue 조합 체크
-    invalid_omics_tissue = []
+    invalid_omics_tissue_rows = []
     for index, row in df.iterrows():
         omics = row['Omics']
         tissue = row['Tissue']
         if omics not in VALID_OMICS or tissue not in VALID_TISSUES:
-            invalid_omics_tissue.append(row)
+            invalid_omics_tissue_rows.append(row)
         elif tissue not in VALID_OMICS_TISSUE.get(omics, []):
-            invalid_omics_tissue.append(row)
-    invalid_omics_tissue = pd.DataFrame(invalid_omics_tissue)
+            invalid_omics_tissue_rows.append(row)
+    invalid_omics_tissue = pd.DataFrame(invalid_omics_tissue_rows)
     
     # 유효하지 않은, 존재하지 않는 Project 체크
     invalid_project = df[~df['Project'].isin(VALID_PROJECTS)].copy()
@@ -231,7 +236,7 @@ def get_invalid_data(df):
 
 def get_valid_data(df):
     # 유효한 데이터만 필터링
-    valid_df = df[(df['Visit'].isin(VALID_VISITS)) & 
+    valid_df = df[(df['Visit'].isin(VALID_VISITS)) &
                   (df['Project'].isin(VALID_PROJECTS))].copy()
     
     # Omics-Tissue 유효성 검사
@@ -268,14 +273,16 @@ def save_uploaded_file(uploaded_file):
         json.dump(config, f)
 
 def get_sample_paths(df):
-    # 실제 환경에서는 여기에 샘플 파일 경로를 결정하는 로직 구현
-    # 예: 프로젝트 폴더/환자ID/Visit/Omics/Tissue/SampleID
+    """
+    실제 환경에서는 각 조직의 파일이 저장된 위치(서버 경로 등)를 
+    구성 규칙에 맞춰서 반환하도록 구현합니다.
+    여기서는 예시로 /data/Project/PatientID/Visit/Omics/Tissue/SampleID 구조로 생성
+    """
     sample_paths = {}
     for _, row in df.iterrows():
         path = f"/data/{row['Project']}/{row['PatientID']}/{row['Visit']}/{row['Omics']}/{row['Tissue']}/{row['SampleID']}"
         key = f"{row['PatientID']}_{row['Visit']}_{row['Omics']}_{row['Tissue']}"
         sample_paths[key] = path
-    
     return sample_paths
 
 def get_file_download_link(df, filename, link_text):
@@ -287,16 +294,18 @@ def get_file_download_link(df, filename, link_text):
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">{link_text}</a>'
     return href
 
+#############################################
 # 페이지 레이아웃
+#############################################
 def login_page():
     st.markdown('<div class="main-header">임상 데이터 관리 시스템 로그인</div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
-    
     with col2:
         st.markdown(
             """
-            <div style="background-color: #F9FAFB; padding: 20px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.12);">
+            <div style="background-color: #F9FAFB; padding: 20px; border-radius: 10px; 
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.12);">
                 <h3 style="text-align: center; color: #1E3A8A;">로그인</h3>
             """, 
             unsafe_allow_html=True
@@ -312,7 +321,7 @@ def login_page():
                     st.session_state.authenticated = True
                     st.session_state.is_admin = is_admin
                     st.session_state.username = username
-                    st.rerun()
+                    st.experimental_rerun()
                 else:
                     st.error("로그인 실패: 사용자 이름 또는 비밀번호가 잘못되었습니다.")
             else:
@@ -321,9 +330,9 @@ def login_page():
         st.markdown("</div>", unsafe_allow_html=True)
 
 def main_page():
-    # 상단 네비게이션
     st.markdown('<div class="main-header">임상 데이터 관리 시스템</div>', unsafe_allow_html=True)
     
+    # 상단 네비게이션
     col1, col2, col3 = st.columns([6, 3, 1])
     with col1:
         st.markdown(f"환영합니다, **{st.session_state.username}**님")
@@ -338,7 +347,7 @@ def main_page():
         if st.button("로그아웃"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
-            st.rerun()
+            st.experimental_rerun()
     
     # 탭 구성
     tabs = ["데이터 현황", "데이터 관리"]
@@ -370,6 +379,9 @@ def main_page():
         unsafe_allow_html=True
     )
 
+#############################################
+# 데이터 현황(대시보드) 페이지
+#############################################
 def view_data_dashboard():
     st.markdown('<div class="sub-header">데이터 현황 대시보드</div>', unsafe_allow_html=True)
     
@@ -387,7 +399,8 @@ def view_data_dashboard():
     with col3:
         st.metric("프로젝트 수", df['Project'].nunique())
     with col4:
-        st.metric("최근 샘플 날짜", df['Date'].max().strftime('%Y-%m-%d') if not pd.isna(df['Date'].max()) else "N/A")
+        max_date = df['Date'].max()
+        st.metric("최근 샘플 날짜", max_date.strftime('%Y-%m-%d') if pd.notna(max_date) else "N/A")
     
     # 탭 구성
     dashboard_tabs = st.tabs([
@@ -396,7 +409,7 @@ def view_data_dashboard():
         "오믹스 조합별 환자수"
     ])
     
-    # 페이지 1: 코호트별 환자수
+    # 페이지 1: 코호트별(프로젝트별) 환자수
     with dashboard_tabs[0]:
         st.markdown('<div class="sub-header">코호트별 - 오믹스별 - Visit별 환자수</div>', unsafe_allow_html=True)
         
@@ -416,8 +429,10 @@ def view_data_dashboard():
                 for omics in omics_list:
                     row_data = {'Omics': omics}
                     for visit in visit_list:
-                        patient_count = project_df[(project_df['Omics'] == omics) & 
-                                                 (project_df['Visit'] == visit)]['PatientID'].nunique()
+                        patient_count = project_df[
+                            (project_df['Omics'] == omics) & 
+                            (project_df['Visit'] == visit)
+                        ]['PatientID'].nunique()
                         row_data[visit] = patient_count
                     # 전체 Visit에 대한 환자수 (중복 제거)
                     row_data['Total'] = project_df[project_df['Omics'] == omics]['PatientID'].nunique()
@@ -456,7 +471,7 @@ def view_data_dashboard():
             with omics_tabs[i]:
                 omics_df = df[df['Omics'] == omics]
                 
-                # 코호트별 Visit별 환자수 계산
+                # 코호트별(프로젝트별) Visit별 환자수 계산
                 projects = sorted(omics_df['Project'].unique())
                 visit_list = sorted(omics_df['Visit'].unique())
                 
@@ -465,10 +480,12 @@ def view_data_dashboard():
                 for project in projects:
                     row_data = {'Project': project}
                     for visit in visit_list:
-                        patient_count = omics_df[(omics_df['Project'] == project) & 
-                                               (omics_df['Visit'] == visit)]['PatientID'].nunique()
+                        patient_count = omics_df[
+                            (omics_df['Project'] == project) & 
+                            (omics_df['Visit'] == visit)
+                        ]['PatientID'].nunique()
                         row_data[visit] = patient_count
-                    # 전체 Visit에 대한 환자수 (중복 제거)
+                    # 전체 Visit에 대한 환자수
                     row_data['Total'] = omics_df[omics_df['Project'] == project]['PatientID'].nunique()
                     result_data.append(row_data)
                 
@@ -545,7 +562,6 @@ def view_data_dashboard():
                     )
                 
                 with col2:
-                    # 선택된 오믹스에 따라 이용 가능한 조직 필터링
                     if selected_omics:
                         available_tissues = sorted(project_df[project_df['Omics'].isin(selected_omics)]['Tissue'].unique())
                         selected_tissues = st.multiselect(
@@ -567,13 +583,11 @@ def view_data_dashboard():
                     
                     # 환자 수 계산
                     patient_count = filtered_df['PatientID'].nunique()
-                    
                     st.markdown(f"**선택된 조건에 맞는 환자수:** {patient_count}")
                     
                     # Visit별, 오믹스별, 조직별 환자수 계산
                     st.markdown('<div class="sub-header">Visit별 환자수</div>', unsafe_allow_html=True)
                     
-                    # 피벗 테이블 생성
                     pivot_df = pd.pivot_table(
                         filtered_df,
                         values='PatientID',
@@ -588,18 +602,16 @@ def view_data_dashboard():
                     # 환자별 샘플 ID 데이터 생성
                     st.markdown('<div class="sub-header">환자별 샘플 ID</div>', unsafe_allow_html=True)
                     
-                    # 데이터 준비
-                    patient_visits = filtered_df.groupby(['PatientID', 'Visit']).size().reset_index().rename(columns={0: 'count'})
-                    
-                    # 환자별, 방문별로 샘플 ID 정리
                     sample_data = []
-                    for patient_id in sorted(filtered_df['PatientID'].unique()):
-                        for visit in sorted(filtered_df[filtered_df['PatientID'] == patient_id]['Visit'].unique()):
-                            patient_visit_data = filtered_df[(filtered_df['PatientID'] == patient_id) & 
-                                                          (filtered_df['Visit'] == visit)]
-                            
+                    for pid in sorted(filtered_df['PatientID'].unique()):
+                        visits_for_pid = sorted(filtered_df[filtered_df['PatientID'] == pid]['Visit'].unique())
+                        for visit in visits_for_pid:
+                            patient_visit_data = filtered_df[
+                                (filtered_df['PatientID'] == pid) & 
+                                (filtered_df['Visit'] == visit)
+                            ]
                             row_data = {
-                                'PatientID': patient_id,
+                                'PatientID': pid,
                                 'Visit': visit,
                                 'Date': patient_visit_data['Date'].min()
                             }
@@ -607,8 +619,10 @@ def view_data_dashboard():
                             # 각 오믹스-조직 조합별 샘플 ID 추가
                             for omics in selected_omics:
                                 for tissue in selected_tissues:
-                                    sample = patient_visit_data[(patient_visit_data['Omics'] == omics) & 
-                                                              (patient_visit_data['Tissue'] == tissue)]
+                                    sample = patient_visit_data[
+                                        (patient_visit_data['Omics'] == omics) & 
+                                        (patient_visit_data['Tissue'] == tissue)
+                                    ]
                                     if not sample.empty:
                                         row_data[f"{omics}_{tissue}_SampleID"] = sample['SampleID'].values[0]
                                     else:
@@ -618,10 +632,9 @@ def view_data_dashboard():
                     
                     sample_df = pd.DataFrame(sample_data)
                     
-                    # 샘플 데이터 표시
                     st.dataframe(sample_df, use_container_width=True)
                     
-                    # 샘플 데이터 다운로드 버튼
+                    # 샘플 데이터 다운로드
                     st.markdown(
                         get_file_download_link(
                             sample_df,
@@ -636,31 +649,33 @@ def view_data_dashboard():
                         st.markdown('<div class="sub-header">샘플 파일 경로</div>', unsafe_allow_html=True)
                         st.info("아래는 선택한 샘플의 파일 경로입니다. 경로를 클릭하면 복사할 수 있습니다.")
                         
-                        # 샘플 경로 생성
                         sample_paths = get_sample_paths(filtered_df)
-                        
-                        # 경로 표시 및 복사 버튼
-                        for patient_id in sorted(filtered_df['PatientID'].unique()):
-                            st.markdown(f"**환자 ID: {patient_id}**")
+                        for pid in sorted(filtered_df['PatientID'].unique()):
+                            st.markdown(f"**환자 ID: {pid}**")
+                            pid_visits = sorted(filtered_df[filtered_df['PatientID'] == pid]['Visit'].unique())
                             
-                            for visit in sorted(filtered_df[filtered_df['PatientID'] == patient_id]['Visit'].unique()):
+                            for visit in pid_visits:
                                 st.markdown(f"*Visit: {visit}*")
-                                
                                 for omics in selected_omics:
                                     for tissue in selected_tissues:
-                                        key = f"{patient_id}_{visit}_{omics}_{tissue}"
+                                        key = f"{pid}_{visit}_{omics}_{tissue}"
                                         if key in sample_paths:
                                             path = sample_paths[key]
                                             st.markdown(
                                                 f"""
                                                 <div class="file-path">
                                                     <span class="file-path-text">{path}</span>
-                                                    <button class="copy-button" onclick="navigator.clipboard.writeText('{path}')">복사</button>
+                                                    <button class="copy-button" onclick="navigator.clipboard.writeText('{path}')">
+                                                        복사
+                                                    </button>
                                                 </div>
                                                 """,
                                                 unsafe_allow_html=True
                                             )
 
+#############################################
+# 데이터 관리 페이지
+#############################################
 def view_data_management():
     st.markdown('<div class="sub-header">데이터 관리</div>', unsafe_allow_html=True)
     
@@ -704,7 +719,11 @@ def data_validation():
             """, unsafe_allow_html=True
         )
     with col2:
-        is_valid_omics_tissue = (len(invalid_omics_tissue) == 0) if not invalid_omics_tissue.empty else True
+        if invalid_omics_tissue is not None and not invalid_omics_tissue.empty:
+            is_valid_omics_tissue = False
+        else:
+            is_valid_omics_tissue = True
+        
         st.markdown(
             f"""
             <div class="{'success-box' if is_valid_omics_tissue else 'error-box'}">
@@ -741,7 +760,7 @@ def data_validation():
     col5, col6 = st.columns(2)
     with col5:
         total_records = len(df)
-        valid_records = len(valid_df) if valid_df is not None and not valid_df.empty else 0
+        valid_records = len(valid_df) if valid_df is not None else 0
         st.metric("유효한 레코드 / 전체 레코드", f"{valid_records} / {total_records}")
     with col6:
         valid_percent = (valid_records / total_records * 100) if total_records > 0 else 0
@@ -759,15 +778,14 @@ def data_validation():
             st.success("모든 Visit 값이 유효합니다.")
     
     with tab2:
-        # 유효한 Omics-Tissue 조합 표시
-        st.info("유효한 Omics-Tissue 조합:")
+        st.info("유효한 Omics-Tissue 조합 예시:")
         valid_combinations = []
         for omics, tissues in VALID_OMICS_TISSUE.items():
             for tissue in tissues:
                 valid_combinations.append({"Omics": omics, "Tissue": tissue})
         st.dataframe(pd.DataFrame(valid_combinations), use_container_width=True)
         
-        if not invalid_omics_tissue.empty:
+        if invalid_omics_tissue is not None and not invalid_omics_tissue.empty:
             st.error("유효하지 않은 Omics-Tissue 조합:")
             st.dataframe(invalid_omics_tissue, use_container_width=True)
         else:
@@ -787,6 +805,9 @@ def data_validation():
         else:
             st.success("중복 레코드가 없습니다.")
 
+#############################################
+# 관리자 설정 페이지
+#############################################
 def admin_settings():
     st.markdown('<div class="sub-header">관리자 설정</div>', unsafe_allow_html=True)
     
@@ -813,27 +834,23 @@ def admin_settings():
     with admin_tabs[1]:
         st.markdown("### 사용자 관리")
         
-        # 사용자 목록 표시
         users = load_users()
         
+        # 사용자 목록 표시
         user_data = []
         for username, user_info in users.items():
             user_data.append({
                 "사용자명": username,
                 "권한": "관리자" if user_info["is_admin"] else "일반 사용자"
             })
-        
         user_df = pd.DataFrame(user_data)
         st.dataframe(user_df, use_container_width=True)
         
         # 새 사용자 추가
         st.markdown("### 새 사용자 추가")
-        
         col1, col2 = st.columns(2)
-        
         with col1:
             new_username = st.text_input("사용자명")
-        
         with col2:
             new_password = st.text_input("비밀번호", type="password")
         
@@ -850,27 +867,25 @@ def admin_settings():
                     }
                     save_users(users)
                     st.success(f"사용자 '{new_username}'가 추가되었습니다.")
-                    st.rerun()
+                    st.experimental_rerun()
             else:
                 st.warning("사용자명과 비밀번호를 모두 입력해주세요.")
         
         # 사용자 삭제
         st.markdown("### 사용자 삭제")
         
-        user_to_delete = st.selectbox(
-            "삭제할 사용자 선택",
-            options=[u for u in users.keys() if u != st.session_state.username]  # 현재 로그인된 사용자는 제외
-        )
-        
-        if st.button("사용자 삭제"):
-            if user_to_delete:
-                if user_to_delete == st.session_state.username:
-                    st.error("현재 로그인한 사용자는 삭제할 수 없습니다.")
-                else:
+        deletable_users = [u for u in users.keys() if u != st.session_state.username]
+        if len(deletable_users) == 0:
+            st.warning("삭제할 수 있는 다른 사용자가 없습니다.")
+        else:
+            user_to_delete = st.selectbox("삭제할 사용자 선택", options=deletable_users)
+            
+            if st.button("사용자 삭제"):
+                if user_to_delete:
                     del users[user_to_delete]
                     save_users(users)
                     st.success(f"사용자 '{user_to_delete}'가 삭제되었습니다.")
-                    st.rerun()
+                    st.experimental_rerun()
     
     # 시스템 설정 탭
     with admin_tabs[2]:
@@ -880,27 +895,28 @@ def admin_settings():
         st.markdown("#### 유효한 값 설정")
         
         col1, col2 = st.columns(2)
-        
         with col1:
             st.markdown("**Visit 설정**")
-            valid_visits = ", ".join(VALID_VISITS)
-            new_valid_visits = st.text_area("유효한 Visit 값 (쉼표로 구분)", value=valid_visits)
-        
+            valid_visits_str = ", ".join(VALID_VISITS)
+            new_valid_visits = st.text_area("유효한 Visit 값 (쉼표로 구분)", value=valid_visits_str)
         with col2:
             st.markdown("**Project 설정**")
-            valid_projects = ", ".join(VALID_PROJECTS)
-            new_valid_projects = st.text_area("유효한 Project 값 (쉼표로 구분)", value=valid_projects)
+            valid_projects_str = ", ".join(VALID_PROJECTS)
+            new_valid_projects = st.text_area("유효한 Project 값 (쉼표로 구분)", value=valid_projects_str)
         
         st.markdown("#### Omics-Tissue 조합 설정")
-        
-        # Omics-Tissue 조합을 테이블로 표시 및 편집 (실제로는 구현 복잡)
-        st.info("Omics-Tissue 조합 설정은 config.json 파일을 직접 편집하여 변경할 수 있습니다.")
+        st.info("Omics-Tissue 조합 설정은 현재 코드 상의 VALID_OMICS_TISSUE 사전을 직접 수정하여 변경할 수 있습니다.")
         
         if st.button("설정 저장"):
-            # 실제 구현에서는 변경된 설정을 저장하는 로직 추가
-            st.success("설정이 저장되었습니다.")
+            """
+            실제 구현에서는 입력된 new_valid_visits, new_valid_projects 등을
+            VALID_VISITS, VALID_PROJECTS에 반영하고, config.json에 저장하는 로직을 넣을 수 있습니다.
+            """
+            st.success("설정이 저장되었습니다. (실제 코드에서는 수정 사항을 config에 반영하는 로직 추가 필요)")
 
+#############################################
 # 메인 실행 부분
+#############################################
 def main():
     # 사용자 초기화
     init_users()
