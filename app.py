@@ -353,7 +353,7 @@ def main_page():
                 del st.session_state[key]
             st.experimental_rerun()
 
-    available_pages = ["오믹스 개별 데이터", "오믹스 조합 데이터", "샘플 ID 리스트", "데이터 관리"]
+    available_pages = ["오믹스 개별 데이터", "오믹스 조합 데이터", "샘플 ID 리스트"]
     if st.session_state.is_admin:
         available_pages.append("관리자 설정")
     
@@ -376,7 +376,7 @@ def main_page():
         view_data_comb_dashboard()
     elif selected_page == "샘플 ID 리스트":
         view_data_id_list()
-    elif selected_page == "관리자 설정" and st.session_stat.is_admin:
+    elif selected_page == "관리자 설정" and st.session_state.is_admin:
         admin_settings()
     
     # 푸터
@@ -455,22 +455,125 @@ def view_data_ind_dashboard():
 # 오믹스 조합 현황 페이지
 #############################################
 def view_data_comb_dashboard():
+    st.markdown('<div class="sub-header">오믹스 조합 데이터 현황</div>', unsafe_allow_html=True)
     code
     
 #############################################
 # Sample ID list 페이지
 #############################################
 def view_data_id_list():
+    st.markdown('<div class="sub-header">샘플 ID List</div>', unsafe_allow_html=True)
     code
     
 #############################################
 # 관리자 설정
 #############################################
 def admin_settings():
-    code
+    st.markdown('<div class="sub-header">관리자 설정</div>', unsafe_allow_html=True)
+ 
+    admin_tabs = st.tabs(["데이터 업로드", "사용자 관리", "시스템 설정"])
     
-
-
+    # 데이터 업로드 탭
+    with admin_tabs[0]:
+        st.markdown("### 데이터 업로드")
+        st.markdown("최신 임상 데이터를 업로드하세요. 업로드 후 자동으로 유효성 검사가 수행됩니다.")
+        
+        uploaded_file = st.file_uploader("Excel 파일 선택", type=["xlsx", "xls"])
+        
+        if uploaded_file is not None:
+            if st.button("파일 업로드"):
+                # 파일 저장
+                save_uploaded_file(uploaded_file)
+                st.success(f"파일이 성공적으로 업로드되었습니다: {uploaded_file.name}")
+                
+                # 데이터 유효성 검사
+                st.markdown("### 업로드된 데이터 유효성 검사")
+                data_validation()
+    
+    # 사용자 관리 탭
+    with admin_tabs[1]:
+        st.markdown("### 사용자 관리")
+        
+        users = load_users()
+        
+        # 사용자 목록 표시
+        user_data = []
+        for username, user_info in users.items():
+            user_data.append({
+                "사용자명": username,
+                "권한": "관리자" if user_info["is_admin"] else "일반 사용자"
+            })
+        user_df = pd.DataFrame(user_data)
+        st.dataframe(user_df, use_container_width=True)
+        
+        # 새 사용자 추가
+        st.markdown("### 새 사용자 추가")
+        col1, col2 = st.columns(2)
+        with col1:
+            new_username = st.text_input("사용자명")
+        with col2:
+            new_password = st.text_input("비밀번호", type="password")
+        
+        is_admin = st.checkbox("관리자 권한 부여")
+        
+        if st.button("사용자 추가"):
+            if new_username and new_password:
+                if new_username in users:
+                    st.error(f"'{new_username}' 사용자가 이미 존재합니다.")
+                else:
+                    users[new_username] = {
+                        "password": hashlib.sha256(new_password.encode()).hexdigest(),
+                        "is_admin": is_admin
+                    }
+                    save_users(users)
+                    st.success(f"사용자 '{new_username}'가 추가되었습니다.")
+                    st.experimental_rerun()
+            else:
+                st.warning("사용자명과 비밀번호를 모두 입력해주세요.")
+        
+        # 사용자 삭제
+        st.markdown("### 사용자 삭제")
+        
+        deletable_users = [u for u in users.keys() if u != st.session_state.username]
+        if len(deletable_users) == 0:
+            st.warning("삭제할 수 있는 다른 사용자가 없습니다.")
+        else:
+            user_to_delete = st.selectbox("삭제할 사용자 선택", options=deletable_users)
+            
+            if st.button("사용자 삭제"):
+                if user_to_delete:
+                    del users[user_to_delete]
+                    save_users(users)
+                    st.success(f"사용자 '{user_to_delete}'가 삭제되었습니다.")
+                    st.experimental_rerun()
+    
+    # 시스템 설정 탭
+    with admin_tabs[2]:
+        st.markdown("### 시스템 설정")
+        
+        # 유효한 값 설정
+        st.markdown("#### 유효한 값 설정")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Visit 설정**")
+            valid_visits_str = ", ".join(VALID_VISITS)
+            new_valid_visits = st.text_area("유효한 Visit 값 (쉼표로 구분)", value=valid_visits_str)
+        with col2:
+            st.markdown("**Project 설정**")
+            valid_projects_str = ", ".join(VALID_PROJECTS)
+            new_valid_projects = st.text_area("유효한 Project 값 (쉼표로 구분)", value=valid_projects_str)
+        
+        st.markdown("#### Omics-Tissue 조합 설정")
+        st.info("Omics-Tissue 조합 설정은 현재 코드 상의 VALID_OMICS_TISSUE 사전을 직접 수정하여 변경할 수 있습니다.")
+        
+        if st.button("설정 저장"):
+            """
+            실제 구현에서는 입력된 new_valid_visits, new_valid_projects 등을
+            VALID_VISITS, VALID_PROJECTS에 반영하고, config.json에 저장하는 로직을 넣을 수 있습니다.
+            """
+            st.success("설정이 저장되었습니다. (실제 코드에서는 수정 사항을 config에 반영하는 로직 추가 필요)")
+    
 
 
 #############################################
@@ -898,115 +1001,6 @@ def data_validation():
             st.dataframe(duplicate_data, use_container_width=True)
         else:
             st.success("중복 레코드가 없습니다.")
-
-#############################################
-# 관리자 설정 페이지
-#############################################
-def admin_settings():
-    st.markdown('<div class="sub-header">관리자 설정</div>', unsafe_allow_html=True)
-    
-    admin_tabs = st.tabs(["데이터 업로드", "사용자 관리", "시스템 설정"])
-    
-    # 데이터 업로드 탭
-    with admin_tabs[0]:
-        st.markdown("### 데이터 업로드")
-        st.markdown("최신 임상 데이터를 업로드하세요. 업로드 후 자동으로 유효성 검사가 수행됩니다.")
-        
-        uploaded_file = st.file_uploader("Excel 파일 선택", type=["xlsx", "xls"])
-        
-        if uploaded_file is not None:
-            if st.button("파일 업로드"):
-                # 파일 저장
-                save_uploaded_file(uploaded_file)
-                st.success(f"파일이 성공적으로 업로드되었습니다: {uploaded_file.name}")
-                
-                # 데이터 유효성 검사
-                st.markdown("### 업로드된 데이터 유효성 검사")
-                data_validation()
-    
-    # 사용자 관리 탭
-    with admin_tabs[1]:
-        st.markdown("### 사용자 관리")
-        
-        users = load_users()
-        
-        # 사용자 목록 표시
-        user_data = []
-        for username, user_info in users.items():
-            user_data.append({
-                "사용자명": username,
-                "권한": "관리자" if user_info["is_admin"] else "일반 사용자"
-            })
-        user_df = pd.DataFrame(user_data)
-        st.dataframe(user_df, use_container_width=True)
-        
-        # 새 사용자 추가
-        st.markdown("### 새 사용자 추가")
-        col1, col2 = st.columns(2)
-        with col1:
-            new_username = st.text_input("사용자명")
-        with col2:
-            new_password = st.text_input("비밀번호", type="password")
-        
-        is_admin = st.checkbox("관리자 권한 부여")
-        
-        if st.button("사용자 추가"):
-            if new_username and new_password:
-                if new_username in users:
-                    st.error(f"'{new_username}' 사용자가 이미 존재합니다.")
-                else:
-                    users[new_username] = {
-                        "password": hashlib.sha256(new_password.encode()).hexdigest(),
-                        "is_admin": is_admin
-                    }
-                    save_users(users)
-                    st.success(f"사용자 '{new_username}'가 추가되었습니다.")
-                    st.experimental_rerun()
-            else:
-                st.warning("사용자명과 비밀번호를 모두 입력해주세요.")
-        
-        # 사용자 삭제
-        st.markdown("### 사용자 삭제")
-        
-        deletable_users = [u for u in users.keys() if u != st.session_state.username]
-        if len(deletable_users) == 0:
-            st.warning("삭제할 수 있는 다른 사용자가 없습니다.")
-        else:
-            user_to_delete = st.selectbox("삭제할 사용자 선택", options=deletable_users)
-            
-            if st.button("사용자 삭제"):
-                if user_to_delete:
-                    del users[user_to_delete]
-                    save_users(users)
-                    st.success(f"사용자 '{user_to_delete}'가 삭제되었습니다.")
-                    st.experimental_rerun()
-    
-    # 시스템 설정 탭
-    with admin_tabs[2]:
-        st.markdown("### 시스템 설정")
-        
-        # 유효한 값 설정
-        st.markdown("#### 유효한 값 설정")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**Visit 설정**")
-            valid_visits_str = ", ".join(VALID_VISITS)
-            new_valid_visits = st.text_area("유효한 Visit 값 (쉼표로 구분)", value=valid_visits_str)
-        with col2:
-            st.markdown("**Project 설정**")
-            valid_projects_str = ", ".join(VALID_PROJECTS)
-            new_valid_projects = st.text_area("유효한 Project 값 (쉼표로 구분)", value=valid_projects_str)
-        
-        st.markdown("#### Omics-Tissue 조합 설정")
-        st.info("Omics-Tissue 조합 설정은 현재 코드 상의 VALID_OMICS_TISSUE 사전을 직접 수정하여 변경할 수 있습니다.")
-        
-        if st.button("설정 저장"):
-            """
-            실제 구현에서는 입력된 new_valid_visits, new_valid_projects 등을
-            VALID_VISITS, VALID_PROJECTS에 반영하고, config.json에 저장하는 로직을 넣을 수 있습니다.
-            """
-            st.success("설정이 저장되었습니다. (실제 코드에서는 수정 사항을 config에 반영하는 로직 추가 필요)")
 
 #############################################
 # 메인 실행 부분
