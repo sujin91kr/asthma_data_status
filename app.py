@@ -325,7 +325,7 @@ def login_page():
                     st.session_state.authenticated = True
                     st.session_state.is_admin = is_admin
                     st.session_state.username = username
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("로그인 실패: 사용자 이름 또는 비밀번호가 잘못되었습니다.")
             else:
@@ -351,7 +351,7 @@ def main_page():
         if st.button("로그아웃"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
-            st.experimental_rerun()
+            st.rerun()
 
     available_pages = ["오믹스 개별 데이터", "오믹스 조합 데이터", "샘플 ID 리스트"]
     if st.session_state.is_admin:
@@ -570,7 +570,7 @@ def view_data_comb_dashboard():
                     tissue_options = sorted(project_df[project_df['Omics'] == valid_omics[0]]['Tissue'].unique())
                     default_tissue = tissue_options[0] if tissue_options else ""
                     st.session_state[session_key].append({"omics": valid_omics[0], "tissue": default_tissue})
-                    st.experimental_rerun()
+                    st.rerun()
 
             # 선택된 omics/tissue 조합에 해당하는 데이터 필터링 (OR 조건)
             condition = pd.Series(False, index=project_df.index)
@@ -681,7 +681,7 @@ def admin_settings():
                     }
                     save_users(users)
                     st.success(f"사용자 '{new_username}'가 추가되었습니다.")
-                    st.experimental_rerun()
+                    st.rerun()
             else:
                 st.warning("사용자명과 비밀번호를 모두 입력해주세요.")
         
@@ -699,7 +699,7 @@ def admin_settings():
                     del users[user_to_delete]
                     save_users(users)
                     st.success(f"사용자 '{user_to_delete}'가 삭제되었습니다.")
-                    st.experimental_rerun()
+                    st.rerun()
     
     # 시스템 설정 탭
     with admin_tabs[2]:
