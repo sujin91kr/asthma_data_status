@@ -48,18 +48,18 @@ st.markdown("""
 <style>
     /* 타이틀 및 메인 헤더 */
     .main-header {
-        font-size: 28px;
+        font-size: 25px;
         font-weight: bold;
-        color: #2b6777
+        color: #1E3A8A;
         margin-bottom: 20px;
-        border-bottom: 2px solid #2b6777;
+        border-bottom: 2px solid #1E3A8A;
         padding-bottom: 10px;
     }
     /* 서브 헤더 */
     .sub-header {
-        font-size: 22px;
+        font-size: 20px;
         font-weight: bold;
-        color: #0f3460; /* 딥 블루 */
+        color: #2563EB;
         margin: 15px 0;
     }
     /* 성공 메시지 박스 */
