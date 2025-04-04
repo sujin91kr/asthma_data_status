@@ -558,7 +558,7 @@ def view_data_comb_dashboard():
                 for combo, count in omics_combinations.items()
             ]).sort_values(by = "환자 수", ascending = False)
 
-            st.dataframe(combination_df, use_container_width = True, , hide_index = True)
+            st.dataframe(combination_df, use_container_width = True, hide_index = True)
             
             # 2. 선택한 오믹스 필터링
             valid_omics = sorted(project_df['Omics'].unique())
