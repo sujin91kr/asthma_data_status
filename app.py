@@ -363,7 +363,7 @@ def main_page():
    
     with st.sidebar:
         selected_page = option_menu("Menu", available_pages,
-                                    # icons = icons_list,
+                                    icons = icons_list,
                                     menu_icon = "app-indicator", default_index = 0,
                                     styles={
         "container": {"padding": "4!important", "background-color": "#fafafa"},
