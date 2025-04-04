@@ -452,7 +452,7 @@ def view_data_ind_dashboard():
                     get_file_download_link(
                         result_df,
                         f"Proejcts_{project}_patient_counts.xlsx",
-                        "📊 환자수 데이터 다운로드"
+                        "📊 코호트별 환자수 데이터 다운로드"
                     ),
                     unsafe_allow_html=True
                 )
@@ -502,6 +502,19 @@ def view_data_ind_dashboard():
                             ]['PatientID'].nunique()
     
                         result_data.append(row_data)
+
+                result_df = pd.DataFrame(result_data)
+                
+                st.dataframe(result_df, use_container_width=True)
+                
+                st.markdown(
+                    get_file_download_link(
+                        result_df,
+                        f"Omics_{omic}_patient_counts.xlsx",
+                        "📊 오믹스별 환자수 데이터 다운로드"
+                    ),
+                    unsafe_allow_html=True
+                )
 
 
 #############################################
