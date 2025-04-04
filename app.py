@@ -606,15 +606,15 @@ def view_data_comb_dashboard():
                     patients_with_all.append(patient)
             filtered_df = project_df[project_df['PatientID'].isin(patients_with_all)]
 
-            #condition = pd.Series(False, index=project_df.index)
-            #for comb in st.session_state[session_key]:
-            #    condition |= ((project_df['Omics'] == comb["omics"]) & (project_df['Tissue'] == comb["tissue"]))
-            #filtered_df = project_df[condition]
+            condition = pd.Series(False, index=project_df.index)
+            for comb in st.session_state[session_key]:
+                condition |= ((filtered_df['Omics'] == comb["omics"]) & (filtered_df['Tissue'] == comb["tissue"]))
+            filtered_df2 = filtered_df[condition]
             
-            filtered_df["Omics_Tissue"] = filtered_df["Omics"].astype(str) + " (" + filtered_df["Tissue"].astype(str) + ")"
+            filtered_df2["Omics_Tissue"] = filtered_df2["Omics"].astype(str) + " (" + filtered_df["Tissue"].astype(str) + ")"
     
             filtered_df_pivot = pd.pivot_table(
-                filtered_df,
+                filtered_df2,
                 values = 'SampleID',
                 index = ['PatientID', 'Visit'],
                 columns = "Omics_Tissue",
@@ -627,10 +627,10 @@ def view_data_comb_dashboard():
                 st.markdown("**필터링된 데이터:**")
                 
                 # Visit별 환자 수를 집계한 피벗 테이블 생성
-                visit_list = sorted(filtered_df['Visit'].unique())
+                visit_list = sorted(filtered_df2['Visit'].unique())
                 if visit_list:
                     pivot_df = pd.pivot_table(
-                        filtered_df,
+                        filtered_df2,
                         values='PatientID',
                         index=['Omics', 'Tissue'],
                         columns=['Visit'],
