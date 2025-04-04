@@ -446,9 +446,8 @@ def view_data_ind_dashboard():
 
                 result_df = pd.DataFrame(result_data)
                 
-                # st.dataframe(result_df, use_container_width=True)                          # with row index
-                st.markdown(result_df.style.hide(axis="index").to_html(), unsafe_allow_html=True)   # without row index
-
+                st.dataframe(result_df, use_container_width=True, hide_index = True) 
+                
                 st.markdown(
                     get_file_download_link(
                         result_df,
@@ -506,8 +505,7 @@ def view_data_ind_dashboard():
 
                 result_df = pd.DataFrame(result_data)
                 
-                #st.dataframe(result_df, use_container_width=True)
-                st.markdown(result_df.style.hide(axis="index").to_html(), unsafe_allow_html=True)   # without row index
+                st.dataframe(result_df, use_container_width=True, hide_index = True)
 
                 st.markdown(
                     get_file_download_link(
@@ -560,9 +558,8 @@ def view_data_comb_dashboard():
                 for combo, count in omics_combinations.items()
             ]).sort_values(by = "환자 수", ascending = False)
 
-            #st.dataframe(combination_df, use_container_width = True)
-            st.markdown(combination_df.style.hide(axis="index").to_html(), unsafe_allow_html=True)   # without row index
-
+            st.dataframe(combination_df, use_container_width = True, , hide_index = True)
+            
             # 2. 선택한 오믹스 필터링
             valid_omics = sorted(project_df['Omics'].unique())
             session_key = f"omics_rows_{project}"
@@ -639,12 +636,8 @@ def view_data_comb_dashboard():
                         aggfunc=lambda x: len(pd.unique(x)),
                         fill_value=0
                     )
-                    #st.dataframe(pivot_df, use_container_width=True)
-                    st.markdown(pivot_df.style.hide(axis="index").to_html(), unsafe_allow_html=True)   # without row index
-                    
-                    # st.dataframe(filtered_df_pivot, use_container_width=True)
-                    st.markdown(filtered_df_pivot.style.hide(axis="index").to_html(), unsafe_allow_html=True)   # without row index
-                    
+                    st.dataframe(pivot_df, use_container_width=True)
+                    st.dataframe(filtered_df_pivot, use_container_width=True)
                     st.markdown(
                         get_file_download_link(
                             filtered_df_pivot,
