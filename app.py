@@ -538,6 +538,30 @@ def view_data_comb_dashboard():
     for i, project in enumerate(projects):
         with project_tabs[i]:
             project_df = df[df['Project'] == project]
+            
+            # 1. 오믹스 조합별 환자 수 요약
+            patient_omics = {}
+            for patient_id in project_df['PatientID'].unique():
+                patient_data = project_df[project_df['PatientID'] == patient_id]
+                patient_omics[patient_id] = sorted(patient_data['Omics'].unique())
+
+            omics_combinations = {}
+            for patient_id, omics_list in patient_omics.items():
+                combination = " + ".join(omics_list)
+                if combination in omics_combinations:
+                    omics_combinations[combination] += 1
+                else:
+                    omics_combinations[combination] = 1
+
+            combination_df = pd.DataFrame([
+                {"오믹스 조합": combo, "환자 수": count}
+                for combo, count in omics_combinations.items()
+            ]).sort_values(by = "환자 수", ascending = False)
+
+            st.dataframe(combinations_df, use_container_width = True)
+
+            
+            # 2. 선택한 오믹스 필터링
             valid_omics = sorted(project_df['Omics'].unique())
             session_key = f"omics_rows_{project}"
             if session_key not in st.session_state:
@@ -577,14 +601,22 @@ def view_data_comb_dashboard():
             for comb in st.session_state[session_key]:
                 condition |= ((project_df['Omics'] == comb["omics"]) & (project_df['Tissue'] == comb["tissue"]))
             filtered_df = project_df[condition]
+            filtered_df["Omics_Tissue"] = filtered_df["Omics"].astype(str) + " (" + filtered_df["Tissue"].astype(str) + ")"
+    
+            filtered_df_pivot = pd.pivot_table(
+                filtered_df,
+                values = 'SampleID',
+                index = ['PatientID', 'Visit'],
+                columns = "Omics_Tissue",
+                aggfunc = 'sum'
+            )
             
             if filtered_df.empty:
                 st.warning("선택된 조합에 해당하는 데이터가 없습니다.")
             else:
                 st.markdown("**필터링된 데이터:**")
-                st.dataframe(filtered_df, use_container_width=True)
                 
-                # 예시: Visit별 환자 수를 집계한 피벗 테이블 생성
+                # Visit별 환자 수를 집계한 피벗 테이블 생성
                 visit_list = sorted(filtered_df['Visit'].unique())
                 if visit_list:
                     pivot_df = pd.pivot_table(
@@ -596,19 +628,17 @@ def view_data_comb_dashboard():
                         fill_value=0
                     )
                     st.dataframe(pivot_df, use_container_width=True)
-                    
+
+                    st.dataframe(filtered_df_pivot, use_container_width=True)
+                
                     st.markdown(
                         get_file_download_link(
-                            pivot_df,
-                            f"{project}_combination_patient_counts.xlsx",
-                            "📊 조합 데이터 다운로드"
+                            filtered_df_pivot,
+                            f"{project}_combination_patient_ID.xlsx",
+                            "📊 선택된 오믹스 샘플 리스트 다운로드"
                         ),
                         unsafe_allow_html=True
                     )                    
-
-
-
-
 
 
 
