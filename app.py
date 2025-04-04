@@ -537,7 +537,7 @@ def view_data_comb_dashboard():
     
     for i, project in enumerate(projects):
         with project_tabs[i]:
-            project_df = df[df['Project'] == project
+            project_df = df[df['Project'] == project]
             valid_omics = sorted(project_df['Omics'].unique())
             session_key = f"omics_rows_{project}"
             if seesion_key not in st.seesion_state:
