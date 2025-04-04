@@ -44,84 +44,100 @@ st.set_page_config(
 )
 
 # CSS 스타일 정의
-# CSS 스타일 정의 (업데이트된 색상 및 스타일)
 st.markdown("""
 <style>
+    /* 전체 배경 */
     body {
-        background-color: #F7F9FC;
+        background-color: #1a1a2e;
     }
+    /* 타이틀 및 메인 헤더 */
     .main-header {
         font-size: 28px;
         font-weight: bold;
-        color: #2A3F54;
+        color: #e94560; /* 오로라 핑크 */
         margin-bottom: 20px;
-        border-bottom: 2px solid #2A3F54;
+        border-bottom: 2px solid #e94560;
         padding-bottom: 10px;
     }
+    /* 서브 헤더 */
     .sub-header {
         font-size: 22px;
         font-weight: bold;
-        color: #2980B9;
+        color: #0f3460; /* 딥 블루 */
         margin: 15px 0;
     }
+    /* 성공 메시지 박스 */
     .success-box {
-        background-color: #E8F8F5;
-        border-left: 5px solid #1ABC9C;
+        background-color: #1dc7ea; /* 밝은 터쿼이즈 */
+        border-left: 5px solid #16a085;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
+        color: #ffffff;
     }
+    /* 에러 메시지 박스 */
     .error-box {
-        background-color: #FDEDEC;
-        border-left: 5px solid #E74C3C;
+        background-color: #f94144;
+        border-left: 5px solid #e71d36;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
+        color: #ffffff;
     }
+    /* 정보 메시지 박스 */
     .info-box {
-        background-color: #ECF0F1;
-        border-left: 5px solid #3498DB;
+        background-color: #f9c74f;
+        border-left: 5px solid #f9844a;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
+        color: #1a1a2e;
     }
+    /* 경고 메시지 박스 */
     .warning-box {
-        background-color: #FEF9E7;
-        border-left: 5px solid #F1C40F;
+        background-color: #90be6d;
+        border-left: 5px solid #43aa8b;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
+        color: #ffffff;
     }
+    /* 탭 스타일 */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #ECF0F1;
+        background-color: #16213e; /* 어두운 블루 */
         border-radius: 4px 4px 0 0;
         padding: 10px 16px;
         font-weight: 600;
+        color: #ffffff;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #2980B9 !important;
-        color: white !important;
+        background-color: #0f3460 !important; /* 딥 블루 */
+        color: #e94560 !important; /* 오로라 핑크 */
     }
+    /* 푸터 스타일 */
     .footer {
         margin-top: 50px;
         text-align: center;
-        color: #95A5A6;
+        color: #c5c6c7;
         font-size: 14px;
-        border-top: 1px solid #BDC3C7;
+        border-top: 1px solid #16213e;
         padding-top: 20px;
     }
+    /* Metric 카드 */
     .metric-card {
-        background-color: #FFFFFF;
+        background-color: #1a1a2e;
         border-radius: 8px;
         padding: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         margin-bottom: 16px;
+        color: #ffffff;
     }
+    /* 파일 경로 박스 */
     .file-path {
-        background-color: #F8F9FA;
+        background-color: #0f3460;
         padding: 8px 12px;
         border-radius: 4px;
         font-family: monospace;
@@ -129,23 +145,36 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
+        color: #ffffff;
     }
     .file-path-text {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+    /* 복사 버튼 */
     .copy-button {
         background-color: transparent;
         border: none;
-        color: #3498DB;
+        color: #e94560;
         cursor: pointer;
         padding: 2px 8px;
         font-size: 14px;
     }
     .copy-button:hover {
-        background-color: #ECF0F1;
+        background-color: #16213e;
         border-radius: 4px;
+    }
+    /* 사이드바 스타일 */
+    .stSidebar {
+        background-color: #0f3460;
+        color: #ffffff;
+    }
+    .stSidebar a {
+        color: #e94560;
+    }
+    .stSidebar a:hover {
+        background-color: #16213e;
     }
 </style>
 <script>
