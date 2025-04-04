@@ -44,46 +44,50 @@ st.set_page_config(
 )
 
 # CSS 스타일 정의
+# CSS 스타일 정의 (업데이트된 색상 및 스타일)
 st.markdown("""
 <style>
+    body {
+        background-color: #F7F9FC;
+    }
     .main-header {
-        font-size: 25px;
+        font-size: 28px;
         font-weight: bold;
-        color: #1E3A8A;
+        color: #2A3F54;
         margin-bottom: 20px;
-        border-bottom: 2px solid #1E3A8A;
+        border-bottom: 2px solid #2A3F54;
         padding-bottom: 10px;
     }
     .sub-header {
-        font-size: 20px;
+        font-size: 22px;
         font-weight: bold;
-        color: #2563EB;
+        color: #2980B9;
         margin: 15px 0;
     }
     .success-box {
-        background-color: #ECFDF5;
-        border-left: 5px solid #10B981;
+        background-color: #E8F8F5;
+        border-left: 5px solid #1ABC9C;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
     }
     .error-box {
-        background-color: #FEF2F2;
-        border-left: 5px solid #EF4444;
+        background-color: #FDEDEC;
+        border-left: 5px solid #E74C3C;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
     }
     .info-box {
-        background-color: #EFF6FF;
-        border-left: 5px solid #3B82F6;
+        background-color: #ECF0F1;
+        border-left: 5px solid #3498DB;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
     }
     .warning-box {
-        background-color: #FFFBEB;
-        border-left: 5px solid #F59E0B;
+        background-color: #FEF9E7;
+        border-left: 5px solid #F1C40F;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
@@ -92,32 +96,32 @@ st.markdown("""
         gap: 8px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #EFF6FF;
-        border-radius: 4px 4px 0px 0px;
+        background-color: #ECF0F1;
+        border-radius: 4px 4px 0 0;
         padding: 10px 16px;
         font-weight: 600;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #3B82F6 !important;
+        background-color: #2980B9 !important;
         color: white !important;
     }
     .footer {
         margin-top: 50px;
         text-align: center;
-        color: #6B7280;
+        color: #95A5A6;
         font-size: 14px;
-        border-top: 1px solid #E5E7EB;
+        border-top: 1px solid #BDC3C7;
         padding-top: 20px;
     }
     .metric-card {
-        background-color: #F9FAFB;
+        background-color: #FFFFFF;
         border-radius: 8px;
         padding: 20px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         margin-bottom: 16px;
     }
     .file-path {
-        background-color: #F3F4F6;
+        background-color: #F8F9FA;
         padding: 8px 12px;
         border-radius: 4px;
         font-family: monospace;
@@ -134,13 +138,13 @@ st.markdown("""
     .copy-button {
         background-color: transparent;
         border: none;
-        color: #3B82F6;
+        color: #3498DB;
         cursor: pointer;
         padding: 2px 8px;
         font-size: 14px;
     }
     .copy-button:hover {
-        background-color: #EFF6FF;
+        background-color: #ECF0F1;
         border-radius: 4px;
     }
 </style>
@@ -154,6 +158,7 @@ function copyToClipboard(text) {
 }
 </script>
 """, unsafe_allow_html=True)
+
 
 #############################################
 # 사용자 관리 함수
