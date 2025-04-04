@@ -357,7 +357,7 @@ def main_page():
 
     available_pages = ["오믹스 개별 데이터", "오믹스 조합 데이터", "샘플 ID 리스트", "데이터 관리"]
     if st.session_state.is_admin:
-        availabel_pages.append("관리자 설정")
+        available_pages.append("관리자 설정")
 
     #with st..sidebar
     selected_page = st.sidebar.selectbox("Menu", available_pages)
