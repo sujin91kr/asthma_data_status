@@ -203,7 +203,16 @@ def load_data():
             if not all(col in df.columns for col in required_cols):
                 st.error(f"데이터 파일에 필수 컬럼이 누락되었습니다. 필요한 컬럼: {', '.join(required_cols)}")
                 return None
-            
+
+            # Project, PatientID, Visit, Omics, Tissue, SampleID 열의 양쪽 공백 제거
+            for col in ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID"]:
+                if col in df.columns:
+                    df[col] = df[col].astype(str).str.strip()
+
+            # Visit 열 변환: "V1" -> "Visit 1", "V2" -> "Visit 2", ...
+            if 'Visit' in df.columns:
+                df['Visit'] = df['Visit'].apply(lambda x: 'Visit ' + x[1:] if x.startswith('V') else x)
+        
             # 날짜 형식 변환
             if 'Date' in df.columns:
                 df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
@@ -334,7 +343,7 @@ def login_page():
         st.markdown("</div>", unsafe_allow_html=True)
 
 def main_page():
-    st.markdown('<div class="main-header">COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
+    #st.markdown('<div class="main-header">COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
     
     # 상단 네비게이션
     #col1, col2, col3 = st.columns([5, 3, 2])
@@ -387,7 +396,7 @@ def main_page():
     st.markdown(
         """
         <div class="footer">
-            © 2025 COREA PRISM Omics Data Status | 개발: WonLab
+            © 2025 COREA PRISM Omics Data Status | WonLab
         </div>
         """, 
         unsafe_allow_html=True
@@ -486,8 +495,7 @@ def view_data_ind_dashboard():
                     project_list = sorted(omics_df[omics_df['Tissue']==tissue]["Project"].unique())
                     
                     for project in project_list:
-                        row_data = {'Omics': omic,
-                                    'Tissue': tissue,
+                        row_data = {'Tissue': tissue,
                                     'Project': project}
 
                         for visit in visit_list:
@@ -527,14 +535,13 @@ def view_data_ind_dashboard():
 #############################################
 def view_data_comb_dashboard():
     #st.markdown('<div class="sub-header">오믹스 조합 데이터 현황</div>', unsafe_allow_html=True)
-    st.markdown('<div class="main-header">오믹스 조 데이터 현황</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">오믹스 조합 데이터 현황</div>', unsafe_allow_html=True)
     
     df = load_data()
     if df is None or df.empty:
         st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
         return
 
-    st.markdown('<div class="sub-header">오믹스 조합 선택</div>', unsafe_allow_html=True)
     projects = sorted(df['Project'].unique())
     if not projects:
         st.warning("프로젝트 데이터가 없습니다.")
@@ -568,6 +575,8 @@ def view_data_comb_dashboard():
             st.dataframe(combination_df, use_container_width = True, hide_index = True)
             
             # 2. 선택한 오믹스 필터링
+            st.markdown('<div class="sub-header">오믹스 조합 선택</div>', unsafe_allow_html=True)
+
             valid_omics = sorted(project_df['Omics'].unique())
             session_key = f"omics_rows_{project}"
             if session_key not in st.session_state:
@@ -617,7 +626,7 @@ def view_data_comb_dashboard():
                 condition |= ((filtered_df['Omics'] == comb["omics"]) & (filtered_df['Tissue'] == comb["tissue"]))
             filtered_df2 = filtered_df[condition]
             
-            filtered_df2["Omics_Tissue"] = filtered_df2["Omics"].astype(str) + " (" + filtered_df["Tissue"].astype(str) + ")"
+            filtered_df2["Omics_Tissue"] = filtered_df2["Omics"].astype(str) + " (" + filtered_df2["Tissue"].astype(str) + ")"
 
             agg_func = lambda x: ", ".join(x.astype(str))
             filtered_df_pivot = pd.pivot_table(
@@ -667,21 +676,62 @@ def view_data_comb_dashboard():
 # Sample ID list 페이지
 #############################################
 def view_data_id_list():
-    st.markdown('<div class="sub-header">샘플 ID List</div>', unsafe_allow_html=True)
-    code
+    #st.markdown('<div class="sub-header">샘플 ID List</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">샘플 ID List</div>', unsafe_allow_html=True)
+
+    df = load_data()
+    if df is None or df.empty:
+        st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
+        return
+
+    projects = sorted(df['Project'].unique())
+    if not projects:
+        st.warning("프로젝트 데이터가 없습니다.")
+        return
+        
+    project_tabs = st.tabs(projects)
+    for i, project in enumerate(projects):
+        with project_tabs[i]:
+            project_df = df[df['Project'] == project]
+            project_df["Omics_Tissue"] = project_df["Omics"].astype(str) + " (" + project_df["Tissue"].astype(str) + ")"
+
+            agg_func = lambda x: ", ".join(x.astype(str))
+            df_pivot = pd.pivot_table(
+                project_df,
+                values = 'SampleID',
+                index = ['PatientID', 'Visit'],
+                columns = "Omics_Tissue",
+                aggfunc = agg_func
+            )
+            df_pivot = df_pivot.sort_index(level=['PatientID', 'Visit'])
+            df_pivot = df_pivot.reset_index()
+            
+            st.dataframe(df_pivot, use_container_width=True, hide_index = True)
+            st.markdown(
+                        get_file_download_link(
+                            df_pivot,
+                            f"{project}_Sample_ID.xlsx",
+                            "📊 오믹스 샘플 ID 다운로드"
+                        ),
+                        unsafe_allow_html=True
+                    ) 
+                    
+                                       
+
     
 #############################################
 # 관리자 설정
 #############################################
 def admin_settings():
-    st.markdown('<div class="sub-header">관리자 설정</div>', unsafe_allow_html=True)
+    #st.markdown('<div class="sub-header">관리자 설정</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">관리자 설정</div>', unsafe_allow_html=True)
  
     admin_tabs = st.tabs(["데이터 업로드", "사용자 관리", "시스템 설정"])
     
     # 데이터 업로드 탭
     with admin_tabs[0]:
-        st.markdown("### 데이터 업로드")
-        st.markdown("최신 임상 데이터를 업로드하세요. 업로드 후 자동으로 유효성 검사가 수행됩니다.")
+        
+        st.markdown("오믹스 샘플 리스트 데이터를 업로드하세요. 업로드 후 자동으로 유효성 검사가 수행됩니다.")
         
         uploaded_file = st.file_uploader("Excel 파일 선택", type=["xlsx", "xls"])
         
@@ -690,14 +740,15 @@ def admin_settings():
                 # 파일 저장
                 save_uploaded_file(uploaded_file)
                 st.success(f"파일이 성공적으로 업로드되었습니다: {uploaded_file.name}")
+                st.divider()
                 
                 # 데이터 유효성 검사
-                st.markdown("### 업로드된 데이터 유효성 검사")
+                st.markdown("#### 업로드된 데이터 유효성 검사")
                 data_validation()
     
     # 사용자 관리 탭
     with admin_tabs[1]:
-        st.markdown("### 사용자 관리")
+        st.markdown("#### 사용자 리스트")
         
         users = load_users()
         
@@ -710,9 +761,10 @@ def admin_settings():
             })
         user_df = pd.DataFrame(user_data)
         st.dataframe(user_df, use_container_width=True)
+        st.divider()
         
         # 새 사용자 추가
-        st.markdown("### 새 사용자 추가")
+        st.markdown("#### 새 사용자 추가")
         col1, col2 = st.columns(2)
         with col1:
             new_username = st.text_input("사용자명")
@@ -735,9 +787,10 @@ def admin_settings():
                     st.rerun()
             else:
                 st.warning("사용자명과 비밀번호를 모두 입력해주세요.")
+        st.divider()
         
         # 사용자 삭제
-        st.markdown("### 사용자 삭제")
+        st.markdown("#### 사용자 삭제")
         
         deletable_users = [u for u in users.keys() if u != st.session_state.username]
         if len(deletable_users) == 0:
@@ -754,7 +807,7 @@ def admin_settings():
     
     # 시스템 설정 탭
     with admin_tabs[2]:
-        st.markdown("### 시스템 설정")
+        # st.markdown("### 시스템 설정")
         
         # 유효한 값 설정
         st.markdown("#### 유효한 값 설정")
@@ -769,8 +822,8 @@ def admin_settings():
             valid_projects_str = ", ".join(VALID_PROJECTS)
             new_valid_projects = st.text_area("유효한 Project 값 (쉼표로 구분)", value=valid_projects_str)
         
-        st.markdown("#### Omics-Tissue 조합 설정")
-        st.info("Omics-Tissue 조합 설정은 현재 코드 상의 VALID_OMICS_TISSUE 사전을 직접 수정하여 변경할 수 있습니다.")
+        st.markdown("** Omics-Tissue 조합 설정**")
+        st.info("Omics-Tissue 조합 설정은 코드 상의 VALID_OMICS_TISSUE 사전을 직접 수정하여 변경할 수 있습니다.")
         
         if st.button("설정 저장"):
             """
@@ -1120,6 +1173,7 @@ def data_validation():
             </div>
             """, unsafe_allow_html=True
         )
+        
     with col2:
         if invalid_omics_tissue is not None and not invalid_omics_tissue.empty:
             is_valid_omics_tissue = False
@@ -1135,6 +1189,7 @@ def data_validation():
             </div>
             """, unsafe_allow_html=True
         )
+        
     with col3:
         is_valid_project = (len(invalid_project) == 0)
         st.markdown(
@@ -1146,6 +1201,7 @@ def data_validation():
             </div>
             """, unsafe_allow_html=True
         )
+        
     with col4:
         is_valid_duplicate = (len(duplicate_data) == 0)
         st.markdown(
@@ -1180,7 +1236,7 @@ def data_validation():
             st.success("모든 Visit 값이 유효합니다.")
     
     with tab2:
-        st.info("유효한 Omics-Tissue 조합 예시:")
+        st.info("유효한 Omics-Tissue 조합:")
         valid_combinations = []
         for omics, tissues in VALID_OMICS_TISSUE.items():
             for tissue in tissues:
