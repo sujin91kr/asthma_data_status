@@ -359,6 +359,7 @@ def main_page():
     if st.session_state.is_admin:
         available_pages.append("관리자 설정")
 
+    option = st.sidebar.selectbox("Menu", available_pages)
     with st.sidebar:
         selected_page = option_menu("Menu", available_pages,
                                     icons = ['house'],
