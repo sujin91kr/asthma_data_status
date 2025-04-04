@@ -356,10 +356,14 @@ def main_page():
     available_pages = ["오믹스 개별 데이터", "오믹스 조합 데이터", "샘플 ID 리스트"]
     if st.session_state.is_admin:
         available_pages.append("관리자 설정")
-    
+
+    icons_list = ['house', 'bar-chart', 'bar-chart-fill']
+    if st.session_state.is_admin:
+        icons_list.append('gear')
+   
     with st.sidebar:
         selected_page = option_menu("Menu", available_pages,
-                                    # icons = ['house'],
+                                    # icons = icons_list,
                                     menu_icon = "app-indicator", default_index = 0,
                                     styles={
         "container": {"padding": "4!important", "background-color": "#fafafa"},
