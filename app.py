@@ -17,7 +17,7 @@ CONFIG_FILE = "config.json"
 DATA_FILE = "data/clinical_data.xlsx"
 USER_FILE = "data/users.json"
 
-VALID_VISITS = ["V1", "V2", "V3", "V4", "V5"]
+VALID_VISITS = ["Visit 1", "Visit 2", "Visit 3", "Visit 4", "Visit 5"]
 VALID_OMICS = ["Bulk Exome RNA-seq", "Bulk Total RNA-seq", "Metabolites", "SNP", "Methylation", "miRNA", "Protein", "scRNA-seq"]
 VALID_TISSUES = ["PAXgene", "PBMC", "Bronchial biopsy", "Nasal cell", "Sputum", "Plasma", "Urine", "Whole blood", "Serum", "Bronchial BAL"]
 VALID_PROJECTS = ["COREA", "PRISM", "PRISMUK"]
@@ -287,8 +287,7 @@ def save_uploaded_file(uploaded_file):
 
 def get_sample_paths(df):
     """
-    실제 환경에서는 각 조직의 파일이 저장된 위치(서버 경로 등)를 
-    구성 규칙에 맞춰서 반환하도록 구현합니다.
+    실제 환경에서는 각 조직의 파일이 저장된 위치(서버 경로 등)를 구성 규칙에 맞춰서 반환하도록 구현합니다.
     여기서는 예시로 /data/Project/PatientID/Visit/Omics/Tissue/SampleID 구조로 생성
     """
     sample_paths = {}
@@ -366,14 +365,16 @@ def main_page():
     if st.session_state.is_admin:
         available_pages.append("관리자 설정")
 
-    icons_list = ['house', 'bar-chart', 'bar-chart-fill']
+    # icon : https://icons.getbootstrap.com/?q=list
+    icons_list = ['bar-chart', 'bar-chart-fill', 'list-task']
     if st.session_state.is_admin:
         icons_list.append('gear')
    
     with st.sidebar:
         selected_page = option_menu("COREA | PRISM Omics Data Status", available_pages,
                                     icons = icons_list,
-                                    menu_icon = "app-indicator", default_index = 0,
+                                    # menu_icon = "app-indicator",
+                                    default_index = 0,
                                     styles={
         "container": {"padding": "4!important", "background-color": "#fafafa"},
         "icon": {"color": "black", "font-size": "25px"},
