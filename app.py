@@ -52,7 +52,7 @@ st.markdown("""
         font-weight: bold;
         color: #35666A;
         margin-bottom: 20px;
-        border-bottom: 2px solid 35666A;
+        border-bottom: 2px solid #35666A;
         padding-bottom: 10px;
     }
     /* 서브 헤더 */
@@ -106,7 +106,7 @@ st.markdown("""
         color: #ffffff;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #0f3460 !important; 
+        background-color: #013946 !important; 
         color: #F67E59 !important; 
     }
     /* 푸터 스타일 */
@@ -331,7 +331,7 @@ def login_page():
             """
             <div style="background-color: #F9FAFB; padding: 20px; border-radius: 10px; 
                         box-shadow: 0 1px 3px rgba(0,0,0,0.12);">
-                <h3 style="text-align: center; color: #1E3A8A;">로그인</h3>
+                <h3 style="text-align: center; color: #35666;">로그인</h3>
             """, 
             unsafe_allow_html=True
         )
@@ -390,8 +390,8 @@ def main_page():
                                     default_index = 0,
                                     styles={
         "container": {"padding": "4!important", "background-color": "#fafafa"},
-        "icon": {"color": "black", "font-size": "25px"},
-        "nav-link": {"font-size": "16px", "text-align": "left", "margin":"0px", "--hover-color": "#fafafa"},
+        "icon": {"color": "black", "font-size": "15px"}, # 25px
+        "nav-link": {"font-size": "10px", "text-align": "left", "margin":"0px", "--hover-color": "#fafafa"}, #16px
         "nav-link-selected": {"background-color": "#98C1BB"},
     })
     
