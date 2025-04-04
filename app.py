@@ -386,12 +386,12 @@ def main_page():
     with st.sidebar:
         selected_page = option_menu("COREA | PRISM Omics Data Status", available_pages,
                                     icons = icons_list,
-                                    # menu_icon = "app-indicator",
+                                    menu_icon = None, #"app-indicator"
                                     default_index = 0,
                                     styles={
         "container": {"padding": "4!important", "background-color": "#fafafa"},
-        "icon": {"color": "black", "font-size": "15px"}, # 25px
-        "nav-link": {"font-size": "10px", "text-align": "left", "margin":"0px", "--hover-color": "#fafafa"}, #16px
+        "icon": {"color": "black", "font-size": "25px"}, 
+        "nav-link": {"font-size": "16px", "text-align": "left", "margin":"0px", "--hover-color": "#fafafa"}, 
         "nav-link-selected": {"background-color": "#98C1BB"},
     })
     
