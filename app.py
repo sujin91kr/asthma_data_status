@@ -46,17 +46,13 @@ st.set_page_config(
 # CSS 스타일 정의
 st.markdown("""
 <style>
-    /* 전체 배경 */
-    body {
-        background-color: #1a1a2e;
-    }
     /* 타이틀 및 메인 헤더 */
     .main-header {
         font-size: 28px;
         font-weight: bold;
-        color: #e94560; /* 오로라 핑크 */
+        color: #2b6777
         margin-bottom: 20px;
-        border-bottom: 2px solid #e94560;
+        border-bottom: 2px solid #2b6777;
         padding-bottom: 10px;
     }
     /* 서브 헤더 */
@@ -68,53 +64,49 @@ st.markdown("""
     }
     /* 성공 메시지 박스 */
     .success-box {
-        background-color: #1dc7ea; /* 밝은 터쿼이즈 */
-        border-left: 5px solid #16a085;
+        background-color: #ECFDF5;
+        border-left: 5px solid #10B981;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
-        color: #ffffff;
     }
     /* 에러 메시지 박스 */
     .error-box {
-        background-color: #f94144;
-        border-left: 5px solid #e71d36;
+        background-color: #FEF2F2;
+        border-left: 5px solid #EF4444;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
-        color: #ffffff;
     }
     /* 정보 메시지 박스 */
     .info-box {
-        background-color: #f9c74f;
-        border-left: 5px solid #f9844a;
+        background-color: #EFF6FF;
+        border-left: 5px solid #3B82F6;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
-        color: #1a1a2e;
     }
     /* 경고 메시지 박스 */
     .warning-box {
-        background-color: #90be6d;
-        border-left: 5px solid #43aa8b;
+        background-color: #FFFBEB;
+        border-left: 5px solid #F59E0B;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 10px;
-        color: #ffffff;
     }
     /* 탭 스타일 */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #16213e; /* 어두운 블루 */
+        background-color: #2b6777; /* 어두운 블루 */
         border-radius: 4px 4px 0 0;
         padding: 10px 16px;
         font-weight: 600;
         color: #ffffff;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #0f3460 !important; /* 딥 블루 */
+        background-color: #0f3460 !important; 
         color: #e94560 !important; /* 오로라 핑크 */
     }
     /* 푸터 스타일 */
@@ -128,16 +120,15 @@ st.markdown("""
     }
     /* Metric 카드 */
     .metric-card {
-        background-color: #1a1a2e;
+        background-color: #F9FAFB;
         border-radius: 8px;
         padding: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
         margin-bottom: 16px;
-        color: #ffffff;
     }
     /* 파일 경로 박스 */
     .file-path {
-        background-color: #0f3460;
+        background-color: #F3F4F6;
         padding: 8px 12px;
         border-radius: 4px;
         font-family: monospace;
@@ -145,7 +136,6 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        color: #ffffff;
     }
     .file-path-text {
         overflow: hidden;
@@ -156,25 +146,14 @@ st.markdown("""
     .copy-button {
         background-color: transparent;
         border: none;
-        color: #e94560;
+        color: #3B82F6;
         cursor: pointer;
         padding: 2px 8px;
         font-size: 14px;
     }
     .copy-button:hover {
-        background-color: #16213e;
+        background-color: #EFF6FF;
         border-radius: 4px;
-    }
-    /* 사이드바 스타일 */
-    .stSidebar {
-        background-color: #0f3460;
-        color: #ffffff;
-    }
-    .stSidebar a {
-        color: #e94560;
-    }
-    .stSidebar a:hover {
-        background-color: #16213e;
     }
 </style>
 <script>
