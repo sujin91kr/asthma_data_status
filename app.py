@@ -354,6 +354,12 @@ def main_page():
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.experimental_rerun()
+
+    available_pages = ["오믹스 개별 데이터", "오믹스 조합 데이터", "샘플 ID 리스트", "데이터 관리"]
+    if st.session_state.is_admin:
+        availabel_pages.append("관리자 설정")
+
+    selected_page = st.sidbar.selectbox("Menu", available_pages)
     
     # 탭 구성
     tabs = ["데이터 현황", "데이터 관리"]
