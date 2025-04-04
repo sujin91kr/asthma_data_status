@@ -445,6 +445,54 @@ def view_data_ind_dashboard():
                         result_data.append(row_data)
 
     with dashboard_tabs[1]:
+        omics = sorted(df['Omics'].unique())
+        if not omics:
+            st.warnings("데이터가 없습니다.")
+            return
+
+        omics_tabs = st.tabs(omics)
+        for i, omic in enumerate(omics):
+            with omics_tabs[i]:
+                omics_df = df[df['Omics'] == omic]
+
+                visit_list = sorted(project_df['Visit'].unique())
+                if not visit_list:
+                    st.warning("데이터가 없습니다.")
+                    continue
+
+                result_data = []
+                tissue_list = sorted(project_df[project_df['Omics']==omic]["Tissue"].unique())
+                for tissue in tissue_list:
+
+                    project_list = sorted(project_df[
+                                          (project_df['Omics']==omic) &
+                                          (project_df['Tissue']==tissue)
+                                          ]["Project"].unique())
+                    
+                    for project in project_list:
+                        row_data = {'Omics': omics,
+                                    'Tissue': tissue,
+                                    'Project': project}
+
+                        for visit in visit_list:
+                            row_data[visit] = 0
+                            
+                        for visit in visit_list:
+                            patient_count = project_df[
+                                (project_df['Omics'] == omics) &
+                                (project_df['Tissue'] == tissue) &
+                                (project_df['Project'] == project) &
+                                (project_df['Visit'] == visit)
+                            ]['PatientID'].nunique()
+                            row_data[visit] = patient_count
+    
+                        row_data['Total'] =  project_df[
+                                (project_df['Omics'] == omics) &
+                                (project_df['Tissue'] == tissue) &
+                                (project_df['Project'] == project)
+                            ]['PatientID'].nunique()
+    
+                        result_data.append(row_data)
 
 
 #############################################
