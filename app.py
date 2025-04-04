@@ -447,7 +447,8 @@ def view_data_ind_dashboard():
                 result_df = pd.DataFrame(result_data)
                 
                 st.dataframe(result_df, use_container_width=True)
-                    st.markdown(
+                
+                st.markdown(
                     get_file_download_link(
                         result_df,
                         f"Proejcts_{project}_patient_counts.xlsx",
