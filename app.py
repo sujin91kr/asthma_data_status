@@ -356,11 +356,10 @@ def main_page():
     available_pages = ["오믹스 개별 데이터", "오믹스 조합 데이터", "샘플 ID 리스트", "데이터 관리"]
     if st.session_state.is_admin:
         available_pages.append("관리자 설정")
-
-    option = st.sidebar.selectbox("Menu", available_pages)
+    
     with st.sidebar:
         selected_page = option_menu("Menu", available_pages,
-                                    icons = ['house'],
+                                    # icons = ['house'],
                                     menu_icon = "app-indicator", default_index = 0,
                                     styles={
         "container": {"padding": "4!important", "background-color": "#fafafa"},
@@ -377,8 +376,6 @@ def main_page():
         view_data_comb_dashboard()
     elif selected_page == "샘플 ID 리스트":
         view_data_id_list()
-    elif selected_page == "데이터 관리":
-        view_data_management()
     elif selected_page == "관리자 설정" and st.session_stat.is_admin:
         admin_settings()
     
@@ -391,6 +388,90 @@ def main_page():
         """, 
         unsafe_allow_html=True
     )
+
+
+#############################################
+# 오믹스 개별 현황 페이지
+#############################################
+def view_data_ind_dashboard():
+    st.markdown('<div class="sub-header">오믹스 개별 데이터 현황</div>', unsafe_allow_html=True)
+    
+    df = load_data()
+    if df is None:
+        st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
+        return
+
+    dashboard_tabs = st.tabs(["코호트별 현황", "오믹스별 현황"])
+    with dashboard_tabs[0]:
+        st.subheader("코호트 - 오믹스 - 샘플 - 방문 - 환자 수", divider = "gray")
+        #st.markdown('<div class="sub-header">코호트 - 오믹스 - Visit 환자수</div>', unsafe_allow_html=True)
+        projects = sorted(df['Project'].unique())
+        if not projects:
+            st.warnings("데이터가 없습니다.")
+            return
+
+        project_tabs = st.tabs(projects)
+        for i, project in enumerate(projects):
+            with projects_tabs[i]:
+                project_df = df[df['Project'] == project]
+
+                omics_list = sorted(project_df['Omics'].unique())
+                visit_list = sorted(project_df['Visit'].unique())
+
+                if not omics_list or not visit_list:
+                    st.warning("데이터가 없습니다.")
+                    continue
+
+                result_data = []
+                for omics in omics_list:
+                    tissue_list = sorted(project_df[project_df['Omics']==omics]["Tissue"].unique())
+                    for tissue in tissue_list:
+                        row_data = {'Omics': omics,
+                                   'Tissue': tissue}
+                        for visit in visit_list:
+                            row_data[visit] = 0
+                            
+                        for visit in visit_list:
+                            patient_count = project_df[
+                                (project_df['Omics'] == omics) &
+                                (project_df['Tissue'] == tissue) &
+                                (project_df['Visit'] == visit)
+                            ]['PatientID'].nunique()
+                            row_data[visit] = patient_count
+
+                        row_data['Total'] =  project_df[
+                                (project_df['Omics'] == omics) &
+                                (project_df['Tissue'] == tissue)
+                            ]['PatientID'].nunique()
+
+                        result_data.append(row_data)
+
+    with dasthboard_tabs[1]:
+        st.subheader("오믹스 - 샘플 - 코호트 - 방문 - 환자 수", divider = "gray")
+        # st.markdown('<div class="sub-header">코호트 - 오믹스 - Visit 환자수</div>', unsafe_allow_html=True)
+
+
+#############################################
+# 오믹스 조합 현황 페이지
+#############################################
+def view_data_comb_dashboard():
+    code
+    
+#############################################
+# Sample ID list 페이지
+#############################################
+def view_data_id_list():
+    code
+    
+#############################################
+# 관리자 설정
+#############################################
+def admin_settings():
+    code
+    
+
+
+
 
 #############################################
 # 데이터 현황(대시보드) 페이지
