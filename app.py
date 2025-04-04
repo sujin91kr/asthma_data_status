@@ -403,8 +403,6 @@ def view_data_ind_dashboard():
 
     dashboard_tabs = st.tabs(["코호트별 현황", "오믹스별 현황"])
     with dashboard_tabs[0]:
-        st.subheader("코호트 - 오믹스 - 샘플 - 방문 - 환자 수", divider = "gray")
-        #st.markdown('<div class="sub-header">코호트 - 오믹스 - Visit 환자수</div>', unsafe_allow_html=True)
         projects = sorted(df['Project'].unique())
         if not projects:
             st.warnings("데이터가 없습니다.")
@@ -447,8 +445,6 @@ def view_data_ind_dashboard():
                         result_data.append(row_data)
 
     with dashboard_tabs[1]:
-        st.subheader("오믹스 - 샘플 - 코호트 - 방문 - 환자 수", divider = "gray")
-        # st.markdown('<div class="sub-header">코호트 - 오믹스 - Visit 환자수</div>', unsafe_allow_html=True)
 
 
 #############################################
