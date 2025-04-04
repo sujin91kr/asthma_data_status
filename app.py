@@ -59,7 +59,7 @@ st.markdown("""
     .sub-header {
         font-size: 20px;
         font-weight: bold;
-        color: #2563EB;
+        color: #35666A;
         margin: 15px 0;
     }
     /* 성공 메시지 박스 */
@@ -99,14 +99,14 @@ st.markdown("""
         gap: 8px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #35666A; 
+        background-color: #98C1BB; 
         border-radius: 4px 4px 0 0;
         padding: 10px 16px;
         font-weight: 600;
         color: #ffffff;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #013946 !important; 
+        background-color: #35666A !important; 
         color: #F67E59 !important; 
     }
     /* 푸터 스타일 */
@@ -386,7 +386,7 @@ def main_page():
     with st.sidebar:
         selected_page = option_menu("COREA | PRISM Omics Data Status", available_pages,
                                     icons = icons_list,
-                                    menu_icon = None, #"app-indicator"
+                                    menu_icon = "", #"app-indicator"
                                     default_index = 0,
                                     styles={
         "container": {"padding": "4!important", "background-color": "#fafafa"},
@@ -587,6 +587,7 @@ def view_data_comb_dashboard():
             ]).sort_values(by = "환자 수", ascending = False)
 
             st.dataframe(combination_df, use_container_width = True, hide_index = True)
+            st.divider()
             
             # 2. 선택한 오믹스 필터링
             st.markdown('<div class="sub-header">오믹스 조합 선택</div>', unsafe_allow_html=True)
@@ -836,7 +837,7 @@ def admin_settings():
             valid_projects_str = ", ".join(VALID_PROJECTS)
             new_valid_projects = st.text_area("유효한 Project 값 (쉼표로 구분)", value=valid_projects_str)
         
-        st.markdown("** Omics-Tissue 조합 설정**")
+        st.markdown("**Omics-Tissue 조합 설정**")
         st.info("Omics-Tissue 조합 설정은 코드 상의 VALID_OMICS_TISSUE 사전을 직접 수정하여 변경할 수 있습니다.")
         
         if st.button("설정 저장"):
