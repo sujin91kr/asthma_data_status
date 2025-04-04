@@ -445,6 +445,7 @@ def view_data_ind_dashboard():
                         result_data.append(row_data)
 
                 result_df = pd.DataFrame(result_data)
+                
                 st.dataframe(result_df, use_container_width=True)
                     st.markdown(
                     get_file_download_link(
@@ -455,6 +456,7 @@ def view_data_ind_dashboard():
                     unsafe_allow_html=True
                 )
 
+    
     with dashboard_tabs[1]:
         omics = sorted(df['Omics'].unique())
         if not omics:
