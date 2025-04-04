@@ -495,12 +495,12 @@ def view_data_ind_dashboard():
                                 (omics_df['Visit'] == visit)
                             ]['PatientID'].nunique()
                             row_data[visit] = patient_count
-    
+
+                        # 전체 Visit에 대한 환자수
                         row_data['Total'] =  omics_df[
                                 (omics_df['Tissue'] == tissue) &
                                 (omics_df['Project'] == project)
                             ]['PatientID'].nunique()
-    
                         result_data.append(row_data)
 
                 result_df = pd.DataFrame(result_data)
