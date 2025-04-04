@@ -359,8 +359,18 @@ def main_page():
     if st.session_state.is_admin:
         available_pages.append("관리자 설정")
 
-    #with st..sidebar
-    selected_page = st.sidebar.selectbox("Menu", available_pages)
+    with st.sidebar:
+        selected_page = option_menu("Menu", available_pages,
+                                    icons = ['house'],
+                                    menu_icon = "app-indicator", default_index = 0,
+                                    styles={
+        "container": {"padding": "4!important", "background-color": "#fafafa"},
+        "icon": {"color": "black", "font-size": "25px"},
+        "nav-link": {"font-size": "16px", "text-align": "left", "margin":"0px", "--hover-color": "#fafafa"},
+        "nav-link-selected": {"background-color": "#08c7b4"},
+    })
+    
+    # selected_page = st.sidebar.selectbox("Menu", available_pages)
 
     if selected_page == "오믹스 개별 데이터":
         view_data_ind_dashboard()
