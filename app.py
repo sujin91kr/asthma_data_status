@@ -337,21 +337,21 @@ def main_page():
     st.markdown('<div class="main-header">COREA | PRISM Omics Data Status</div>', unsafe_allow_html=True)
     
     # 상단 네비게이션
-    col1, col2, col3 = st.columns([5, 3, 2])
-    with col1:
-        st.markdown(f"환영합니다, **{st.session_state.username}**님")
-    with col2:
-        # 마지막 업데이트 정보 표시
-        if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, 'r') as f:
-                config = json.load(f)
-                if 'last_update' in config:
-                    st.markdown(f"마지막 업데이트: {config['last_update']}")
-    with col3:
-        if st.button("로그아웃"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
+    #col1, col2, col3 = st.columns([5, 3, 2])
+    #with col1:
+    #    st.markdown(f"환영합니다, **{st.session_state.username}**님")
+    #with col2:
+    #    # 마지막 업데이트 정보 표시
+    #    if os.path.exists(CONFIG_FILE):
+    #        with open(CONFIG_FILE, 'r') as f:
+    #            config = json.load(f)
+    #            if 'last_update' in config:
+    #                st.markdown(f"마지막 업데이트: {config['last_update']}")
+    #with col3:
+    #    if st.button("로그아웃"):
+    #        for key in list(st.session_state.keys()):
+    #            del st.session_state[key]
+    #        st.rerun()
 
     available_pages = ["오믹스 개별 데이터", "오믹스 조합 데이터", "샘플 ID 리스트"]
     if st.session_state.is_admin:
@@ -362,7 +362,7 @@ def main_page():
         icons_list.append('gear')
    
     with st.sidebar:
-        selected_page = option_menu("Menu", available_pages,
+        selected_page = option_menu("COREA | PRISM Omics Data Status", available_pages,
                                     icons = icons_list,
                                     menu_icon = "app-indicator", default_index = 0,
                                     styles={
@@ -398,8 +398,9 @@ def main_page():
 # 오믹스 개별 현황 페이지
 #############################################
 def view_data_ind_dashboard():
-    st.markdown('<div class="sub-header">오믹스 개별 데이터 현황</div>', unsafe_allow_html=True)
-    
+    #st.markdown('<div class="sub-header">오믹스 개별 데이터 현황</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">오믹스 개별 데이터 현황</div>', unsafe_allow_html=True)
+
     df = load_data()
     if df is None:
         st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
@@ -525,13 +526,15 @@ def view_data_ind_dashboard():
 # 오믹스 조합 현황 페이지
 #############################################
 def view_data_comb_dashboard():
-    st.markdown('<div class="sub-header">오믹스 조합 데이터 현황</div>', unsafe_allow_html=True)
-
+    #st.markdown('<div class="sub-header">오믹스 조합 데이터 현황</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">오믹스 조 데이터 현황</div>', unsafe_allow_html=True)
+    
     df = load_data()
     if df is None or df.empty:
         st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
         return
 
+    st.markdown('<div class="sub-header">오믹스 조합 선택</div>', unsafe_allow_html=True)
     projects = sorted(df['Project'].unique())
     if not projects:
         st.warning("프로젝트 데이터가 없습니다.")
