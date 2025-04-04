@@ -522,8 +522,96 @@ def view_data_ind_dashboard():
 #############################################
 def view_data_comb_dashboard():
     st.markdown('<div class="sub-header">오믹스 조합 데이터 현황</div>', unsafe_allow_html=True)
-    code
+
+    df = load_data()
+    if df is None or df.empty:
+        st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
+        return
+
+    projects = sorted(df['Project'].unique())
+    if not projects:
+        st.warning("프로젝트 데이터가 없습니다.")
+        return
+        
+    project_tabs = st.tabs(projects)
     
+    for i, project in enumerate(projects):
+        with project_tabs[i]:
+            project_df = df[df['Project'] == project
+            valid_omics = sorted(project_df['Omics'].unique())
+            session_key = f"omics_rows_{project}"
+            if seesion_key not in st.seesion_state:
+                if valid_omics:
+                    tissue_options = sorted(project_df[project_df['Omics'] == valid_omics[0]]['Tissue'].unique())
+                    default_tissue = tissue_options[0] if tissue_options else ""
+                    st.seesion_state[session_key] = [{"omics": valid_omics[0], "tissue": default_tissue}]
+                else:
+                    st.session_state[session_key] = []
+
+            for idx, row in enumerate(st.session_state[session_key]):
+                col1, col2 = st.columns(2)
+                selected_omics = col1.selectbox(
+                    f"Omics 선택 {idx+1}",
+                    options=valid_omics,
+                    index=valid_omics.index(row["omics"]) if row["omics"] in valid_omics else 0,
+                    key=f"comb_{project}_omics_{idx}"
+                )
+                # 선택된 omics에 대해 해당 프로젝트에서 나타난 tissue 옵션 추출
+                tissue_options = sorted(project_df[project_df['Omics'] == selected_omics]['Tissue'].unique())
+                selected_tissue = col2.selectbox(
+                    f"Tissue 선택 {idx+1}",
+                    options=tissue_options,
+                    key=f"comb_{project}_tissue_{idx}"
+                )
+                st.session_state[session_key][idx] = {"omics": selected_omics, "tissue": selected_tissue}
+
+            if st.button("행 추가 (+)", key=f"add_row_{project}"):
+                if valid_omics:
+                    tissue_options = sorted(project_df[project_df['Omics'] == valid_omics[0]]['Tissue'].unique())
+                    default_tissue = tissue_options[0] if tissue_options else ""
+                    st.session_state[session_key].append({"omics": valid_omics[0], "tissue": default_tissue})
+                    st.experimental_rerun()
+
+            # 선택된 omics/tissue 조합에 해당하는 데이터 필터링 (OR 조건)
+            condition = pd.Series(False, index=project_df.index)
+            for comb in st.session_state[session_key]:
+                condition |= ((project_df['Omics'] == comb["omics"]) & (project_df['Tissue'] == comb["tissue"]))
+            filtered_df = project_df[condition]
+            
+            if filtered_df.empty:
+                st.warning("선택된 조합에 해당하는 데이터가 없습니다.")
+            else:
+                st.markdown("**필터링된 데이터:**")
+                st.dataframe(filtered_df, use_container_width=True)
+                
+                # 예시: Visit별 환자 수를 집계한 피벗 테이블 생성
+                visit_list = sorted(filtered_df['Visit'].unique())
+                if visit_list:
+                    pivot_df = pd.pivot_table(
+                        filtered_df,
+                        values='PatientID',
+                        index=['Omics', 'Tissue'],
+                        columns=['Visit'],
+                        aggfunc=lambda x: len(pd.unique(x)),
+                        fill_value=0
+                    )
+                    st.dataframe(pivot_df, use_container_width=True)
+                    
+                    st.markdown(
+                        get_file_download_link(
+                            pivot_df,
+                            f"{project}_combination_patient_counts.xlsx",
+                            "📊 조합 데이터 다운로드"
+                        ),
+                        unsafe_allow_html=True
+                    )                    
+
+
+
+
+
+
+
 #############################################
 # Sample ID list 페이지
 #############################################
