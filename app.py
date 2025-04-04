@@ -619,6 +619,7 @@ def view_data_comb_dashboard():
                 columns = "Omics_Tissue",
                 aggfunc = 'sum'
             )
+            filtered_df_pivot = filtered_df_pivot.reset_index()
             
             if filtered_df.empty:
                 st.warning("선택된 조합에 해당하는 데이터가 없습니다.")
@@ -636,8 +637,10 @@ def view_data_comb_dashboard():
                         aggfunc=lambda x: len(pd.unique(x)),
                         fill_value=0
                     )
-                    st.dataframe(pivot_df, use_container_width=True)
-                    st.dataframe(filtered_df_pivot, use_container_width=True)
+                    pivot_df = pivot_df.reset_index()
+                    
+                    st.dataframe(pivot_df, use_container_width=True, hide_index = True)
+                    st.dataframe(filtered_df_pivot, use_container_width=True, hide_index = True)
                     st.markdown(
                         get_file_download_link(
                             filtered_df_pivot,
