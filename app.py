@@ -412,7 +412,7 @@ def view_data_ind_dashboard():
 
         project_tabs = st.tabs(projects)
         for i, project in enumerate(projects):
-            with projects_tabs[i]:
+            with project_tabs[i]:
                 project_df = df[df['Project'] == project]
 
                 omics_list = sorted(project_df['Omics'].unique())
