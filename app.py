@@ -617,9 +617,12 @@ def view_data_comb_dashboard():
                 values = 'SampleID',
                 index = ['PatientID', 'Visit'],
                 columns = "Omics_Tissue",
-                aggfunc = 'sum'
+                # aggfunc = 'sum'
+                aggfunc = lamda x: ", ".join(x.astype(str))
             )
+            filtered_df_pivot = filtered_df_pivot.sort_index(level=['PatientID', 'Visit'])
             filtered_df_pivot = filtered_df_pivot.reset_index()
+            
             
             if filtered_df.empty:
                 st.warning("선택된 조합에 해당하는 데이터가 없습니다.")
