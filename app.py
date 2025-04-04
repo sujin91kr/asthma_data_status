@@ -50,9 +50,9 @@ st.markdown("""
     .main-header {
         font-size: 25px;
         font-weight: bold;
-        color: #1E3A8A;
+        color: #35666A;
         margin-bottom: 20px;
-        border-bottom: 2px solid #1E3A8A;
+        border-bottom: 2px solid 35666A;
         padding-bottom: 10px;
     }
     /* 서브 헤더 */
@@ -99,7 +99,7 @@ st.markdown("""
         gap: 8px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #2b6777; /* 어두운 블루 */
+        background-color: #35666A; 
         border-radius: 4px 4px 0 0;
         padding: 10px 16px;
         font-weight: 600;
@@ -107,7 +107,7 @@ st.markdown("""
     }
     .stTabs [aria-selected="true"] {
         background-color: #0f3460 !important; 
-        color: #e94560 !important; /* 오로라 핑크 */
+        color: #F67E59 !important; 
     }
     /* 푸터 스타일 */
     .footer {
@@ -115,7 +115,7 @@ st.markdown("""
         text-align: center;
         color: #c5c6c7;
         font-size: 14px;
-        border-top: 1px solid #16213e;
+        border-top: 1px solid #35666A;
         padding-top: 20px;
     }
     /* Metric 카드 */
@@ -392,7 +392,7 @@ def main_page():
         "container": {"padding": "4!important", "background-color": "#fafafa"},
         "icon": {"color": "black", "font-size": "25px"},
         "nav-link": {"font-size": "16px", "text-align": "left", "margin":"0px", "--hover-color": "#fafafa"},
-        "nav-link-selected": {"background-color": "#08c7b4"},
+        "nav-link-selected": {"background-color": "#98C1BB"},
     })
     
     # selected_page = st.sidebar.selectbox("Menu", available_pages)
