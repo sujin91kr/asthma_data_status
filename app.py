@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_option_menu import option_menu
 import pandas as pd
 import numpy as np
 import datetime
@@ -10,9 +11,6 @@ import hashlib
 import json
 import re
 from datetime import datetime, timezone, timedelta
-
-# 타임존 설정 (KST: UTC+9)
-KST = timezone(timedelta(hours=9))
 
 # 설정 및 상수
 CONFIG_FILE = "config.json"
