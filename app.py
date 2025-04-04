@@ -359,27 +359,19 @@ def main_page():
     if st.session_state.is_admin:
         availabel_pages.append("관리자 설정")
 
-    selected_page = st.sidbar.selectbox("Menu", available_pages)
-    
-    # 탭 구성
-    tabs = ["데이터 현황", "데이터 관리"]
-    if st.session_state.is_admin:
-        tabs.append("관리자 설정")
-    
-    main_tab = st.tabs(tabs)
-    
-    # 데이터 현황 탭
-    with main_tab[0]:
-        view_data_dashboard()
-    
-    # 데이터 관리 탭
-    with main_tab[1]:
+    #with st..sidebar
+    selected_page = st.sidebar.selectbox("Menu", available_pages)
+
+    if selected_page == "오믹스 개별 데이터":
+        view_data_ind_dashboard()
+    elif selected_page == "오믹스 조합 데이터":
+        view_data_comb_dashboard()
+    elif selected_page == "샘플 ID 리스트":
+        view_data_id_list()
+    elif selected_page == "데이터 관리":
         view_data_management()
-    
-    # 관리자 설정 탭
-    if st.session_state.is_admin and len(main_tab) > 2:
-        with main_tab[2]:
-            admin_settings()
+    elif selected_page == "관리자 설정" and st.session_stat.is_admin:
+        admin_settings()
     
     # 푸터
     st.markdown(
