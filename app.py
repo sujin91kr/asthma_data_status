@@ -455,22 +455,19 @@ def view_data_ind_dashboard():
             with omics_tabs[i]:
                 omics_df = df[df['Omics'] == omic]
 
-                visit_list = sorted(project_df['Visit'].unique())
+                visit_list = sorted(omics_df['Visit'].unique())
                 if not visit_list:
                     st.warning("데이터가 없습니다.")
                     continue
 
                 result_data = []
-                tissue_list = sorted(project_df[project_df['Omics']==omic]["Tissue"].unique())
+                tissue_list = sorted(omics_df["Tissue"].unique())
                 for tissue in tissue_list:
 
-                    project_list = sorted(project_df[
-                                          (project_df['Omics']==omic) &
-                                          (project_df['Tissue']==tissue)
-                                          ]["Project"].unique())
+                    project_list = sorted(omics_df[omics_df['Tissue']==tissue]["Project"].unique())
                     
                     for project in project_list:
-                        row_data = {'Omics': omics,
+                        row_data = {'Omics': omic,
                                     'Tissue': tissue,
                                     'Project': project}
 
@@ -478,18 +475,16 @@ def view_data_ind_dashboard():
                             row_data[visit] = 0
                             
                         for visit in visit_list:
-                            patient_count = project_df[
-                                (project_df['Omics'] == omics) &
-                                (project_df['Tissue'] == tissue) &
-                                (project_df['Project'] == project) &
-                                (project_df['Visit'] == visit)
+                            patient_count = omics_df[
+                                (omics_df['Tissue'] == tissue) &
+                                (omics_df['Project'] == project) &
+                                (omics_df['Visit'] == visit)
                             ]['PatientID'].nunique()
                             row_data[visit] = patient_count
     
-                        row_data['Total'] =  project_df[
-                                (project_df['Omics'] == omics) &
-                                (project_df['Tissue'] == tissue) &
-                                (project_df['Project'] == project)
+                        row_data['Total'] =  omics_df[
+                                (omics_df['Tissue'] == tissue) &
+                                (omics_df['Project'] == project)
                             ]['PatientID'].nunique()
     
                         result_data.append(row_data)
