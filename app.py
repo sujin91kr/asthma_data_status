@@ -611,14 +611,15 @@ def view_data_comb_dashboard():
             filtered_df2 = filtered_df[condition]
             
             filtered_df2["Omics_Tissue"] = filtered_df2["Omics"].astype(str) + " (" + filtered_df["Tissue"].astype(str) + ")"
-    
+
+            agg_func = lambda x: ", ".join(x.astype(str))
             filtered_df_pivot = pd.pivot_table(
                 filtered_df2,
                 values = 'SampleID',
                 index = ['PatientID', 'Visit'],
                 columns = "Omics_Tissue",
                 # aggfunc = 'sum'
-                aggfunc = lamda x: ", ".join(x.astype(str))
+                aggfunc = agg_func
             )
             filtered_df_pivot = filtered_df_pivot.sort_index(level=['PatientID', 'Visit'])
             filtered_df_pivot = filtered_df_pivot.reset_index()
