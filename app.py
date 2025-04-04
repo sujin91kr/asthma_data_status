@@ -446,7 +446,7 @@ def view_data_ind_dashboard():
 
                         result_data.append(row_data)
 
-    with dasthboard_tabs[1]:
+    with dashboard_tabs[1]:
         st.subheader("오믹스 - 샘플 - 코호트 - 방문 - 환자 수", divider = "gray")
         # st.markdown('<div class="sub-header">코호트 - 오믹스 - Visit 환자수</div>', unsafe_allow_html=True)
 
