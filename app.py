@@ -540,11 +540,11 @@ def view_data_comb_dashboard():
             project_df = df[df['Project'] == project]
             valid_omics = sorted(project_df['Omics'].unique())
             session_key = f"omics_rows_{project}"
-            if seesion_key not in st.seesion_state:
+            if session_key not in st.session_state:
                 if valid_omics:
                     tissue_options = sorted(project_df[project_df['Omics'] == valid_omics[0]]['Tissue'].unique())
                     default_tissue = tissue_options[0] if tissue_options else ""
-                    st.seesion_state[session_key] = [{"omics": valid_omics[0], "tissue": default_tissue}]
+                    st.session_state[session_key] = [{"omics": valid_omics[0], "tissue": default_tissue}]
                 else:
                     st.session_state[session_key] = []
 
