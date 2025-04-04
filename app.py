@@ -596,11 +596,21 @@ def view_data_comb_dashboard():
                     st.session_state[session_key].append({"omics": valid_omics[0], "tissue": default_tissue})
                     st.rerun()
 
-            # 선택된 omics/tissue 조합에 해당하는 데이터 필터링 (OR 조건)
-            condition = pd.Series(False, index=project_df.index)
-            for comb in st.session_state[session_key]:
-                condition |= ((project_df['Omics'] == comb["omics"]) & (project_df['Tissue'] == comb["tissue"]))
-            filtered_df = project_df[condition]
+            # 선택된 omics/tissue 조합에 해당하는 데이터 필터링
+            selected_combinations = {(comb["omics"], comb["tissue"]) for comb in st.session_state[session_key]}
+            patients_with_all = []
+            for patient in project_df['PatientID'].unique():
+                patient_data = project_df[project_df['PatientID'] == patient]
+                patient_combinations = set(zip(patient_data['Omics'], patient_data['Tissue']))
+                if selected_combinations.issubset(patient_combinations):
+                    patients_with_all.append(patient)
+            filtered_df = project_df[project_df['PatientID'].isin(patients_with_all)]
+
+            #condition = pd.Series(False, index=project_df.index)
+            #for comb in st.session_state[session_key]:
+            #    condition |= ((project_df['Omics'] == comb["omics"]) & (project_df['Tissue'] == comb["tissue"]))
+            #filtered_df = project_df[condition]
+            
             filtered_df["Omics_Tissue"] = filtered_df["Omics"].astype(str) + " (" + filtered_df["Tissue"].astype(str) + ")"
     
             filtered_df_pivot = pd.pivot_table(
