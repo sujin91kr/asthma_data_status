@@ -276,7 +276,8 @@ def get_invalid_data(df):
     # PRISM 외 다른 project에 Biologics 정보가 있는지 확인
     non_prism_df = df[df['Project'] != 'PRISM'].copy()
     if not non_prism_df.empty:
-        non_prism_with_biologics = non_prism_df[non_prism_df['Biologics'].notna()]
+        # non_prism_with_biologics = non_prism_df[non_prism_df['Biologics'].notna()]
+        non_prism_with_biologics = non_prism_df[non_prism_df['Biologics']=='nan']
         non_prism_with_biologics = pd.DataFrame(non_prism_with_biologics)
     else:
         non_prism_with_biologics = pd.DataFrame()
