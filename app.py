@@ -277,10 +277,12 @@ def get_invalid_data(df):
     non_prism_df = df[df['Project'] != 'PRISM'].copy()
     if not non_prism_df.empty:
         non_prism_with_biologics = non_prism_df[non_prism_df['Biologics'].notna()]
-        invalid_biologics.append(pd.DataFrame(non_prism_with_biologics))
-    # else:
-    #    invalid_results['invalid_biologics_unique'] = pd.DataFrame()
-    #    invalid_results['invalid_biologics_non_prism'] = pd.DataFrame()
+        non_prism_with_biologics = pd.DataFrame(non_prism_with_biologics)
+    else:
+        non_prism_with_biologics = pd.DataFrame()
+        invalid_biologics = pd.DataFrame()
+        
+    invalid_biologics = bind_rows(invalid_biologics, b = non_prism_with_biologics)
 
     return invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data, invalid_biologics
 
