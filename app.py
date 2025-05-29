@@ -282,7 +282,7 @@ def get_invalid_data(df):
         non_prism_with_biologics = pd.DataFrame()
         invalid_biologics = pd.DataFrame()
         
-    invalid_biologics = bind_rows(invalid_biologics, b = non_prism_with_biologics)
+    invalid_biologics = pd.bind_rows(invalid_biologics, b = non_prism_with_biologics)
 
     return invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data, invalid_biologics
 
