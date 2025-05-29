@@ -212,13 +212,13 @@ def load_data():
         try:
             df = pd.read_excel(DATA_FILE)
             # 필수 컬럼 확인
-            required_cols = ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID", "Date"]
+            required_cols = ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID", "Date", "Biologics"]
             if not all(col in df.columns for col in required_cols):
                 st.error(f"데이터 파일에 필수 컬럼이 누락되었습니다. 필요한 컬럼: {', '.join(required_cols)}")
                 return None
 
             # Project, PatientID, Visit, Omics, Tissue, SampleID 열의 양쪽 공백 제거
-            for col in ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID"]:
+            for col in ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID", "Biologics"]:
                 if col in df.columns:
                     df[col] = df[col].astype(str).str.strip()
 
@@ -257,8 +257,34 @@ def get_invalid_data(df):
     # 중복 데이터 체크 (PatientID, Visit, Omics, Tissue 기준)
     duplicate_keys = df.duplicated(subset=['PatientID', 'Visit', 'Omics', 'Tissue'], keep=False)
     duplicate_data = df[duplicate_keys].sort_values(by=['PatientID', 'Visit', 'Omics', 'Tissue']).copy()
-    
-    return invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data
+
+    # Biologics 관련 유효성 검사
+    # if 'Biologics' in df.columns:
+    # PRISM 프로젝트에서 각 PatientID당 unique한 Biologics가 1개인지 확인
+    prism_df = df[df['Project'] == 'PRISM'].copy()
+    if not prism_df.empty:
+        biologics_per_patient = prism_df.groupby('PatientID')['Biologics'].nunique()
+        invalid_biologics_unique = biologics_per_patient[biologics_per_patient != 1]
+        if not invalid_biologics_unique.empty:
+            invalid_biologics_patients = prism_df[prism_df['PatientID'].isin(invalid_biologics_unique.index)]
+            invalid_biologics = pd.DataFrame(invalid_biologics_patients)
+        else:
+            invalid_biologics = pd.DataFrame()
+    else:
+        invalid_biologics = pd.DataFrame()
+
+    # PRISM 외 다른 project에 Biologics 정보가 있는지 확인
+    non_prism_df = df[df['Project'] != 'PRISM'].copy()
+    if not non_prism_df.empty:
+        non_prism_with_biologics = non_prism_df[non_prism_df['Biologics'].notna()]
+        invalid_biologics_non_prism = pd.DataFrame(on_prism_with_biologics)
+    else:
+        invalid_biologics_non_prism = pd.DataFrame()
+    # else:
+    #    invalid_results['invalid_biologics_unique'] = pd.DataFrame()
+    #    invalid_results['invalid_biologics_non_prism'] = pd.DataFrame()
+
+    return invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data, invalid_biologics, invalid_biologics_non_prism
 
 def get_valid_data(df):
     # 유효한 데이터만 필터링
@@ -277,7 +303,7 @@ def get_valid_data(df):
     valid_df = pd.DataFrame(valid_rows)
     
     # 중복 제거 (첫 번째 항목 유지)
-    valid_df = valid_df.drop_duplicates(subset=['PatientID', 'Visit', 'Omics', 'Tissue'], keep='first')
+    valid_df = valid_df.drop_duplicates(subset=['PatientID', 'Biologics', 'Visit', 'Omics', 'Tissue'], keep='first')
     
     return valid_df
 
@@ -448,29 +474,68 @@ def view_data_ind_dashboard():
                     st.warning("데이터가 없습니다.")
                     continue
 
+                # PRISM 프로젝트에 대해서만 Biologics 옵션 제공
+                show_biologics = False
+                if project == "PRISM":
+                    show_biologics = st.checkbox(f"Biologics 정보 포함", key = f"biologics_check")  
+                
                 result_data = []
-                for omics in omics_list:
-                    tissue_list = sorted(project_df[project_df['Omics']==omics]["Tissue"].unique())
-                    for tissue in tissue_list:
-                        row_data = {'Omics': omics,
-                                   'Tissue': tissue}
-                        for visit in visit_list:
-                            row_data[visit] = 0
-                            
-                        for visit in visit_list:
-                            patient_count = project_df[
-                                (project_df['Omics'] == omics) &
-                                (project_df['Tissue'] == tissue) &
-                                (project_df['Visit'] == visit)
-                            ]['PatientID'].nunique()
-                            row_data[visit] = patient_count
 
-                        row_data['Total'] =  project_df[
-                                (project_df['Omics'] == omics) &
-                                (project_df['Tissue'] == tissue)
-                            ]['PatientID'].nunique()
+                if show_biologics: 
+                    biologics_list = sorted(project_df['Biologics'].dropna().unique())
+                    
+                    for omics in omics_list:
+                        tissue_list = sorted(project_df[project_df['Omics']==omics]["Tissue"].unique())
+                        for tissue in tissue_list:
+                            for biologics in biologics_list:
+                                row_data = {'Omics': omics,
+                                           'Tissue': tissue, 
+                                           'Biologics': biologics
+                                           }
 
-                        result_data.append(row_data)
+                            for visit in visit_list:
+                                row_data[visit] = 0
+                                
+                            for visit in visit_list:
+                                patient_count = project_df[
+                                    (project_df['Omics'] == omics) &
+                                    (project_df['Tissue'] == tissue) &
+                                    (project_df['Biologics'] == biologics) &
+                                    (project_df['Visit'] == visit)
+                                ]['PatientID'].nunique()
+                                row_data[visit] = patient_count       
+
+                            row_data['Total'] =  project_df[
+                                    (project_df['Omics'] == omics) &
+                                    (project_df['Tissue'] == tissue) &
+                                    (project_df['Biologics'] == biologics)
+                                ]['PatientID'].nunique()
+
+                            result_data.append(row_data)
+    
+                else:
+                    for omics in omics_list:
+                        tissue_list = sorted(project_df[project_df['Omics']==omics]["Tissue"].unique())
+                        for tissue in tissue_list:
+                            row_data = {'Omics': omics,
+                                       'Tissue': tissue}
+                            for visit in visit_list:
+                                row_data[visit] = 0
+                                
+                            for visit in visit_list:
+                                patient_count = project_df[
+                                    (project_df['Omics'] == omics) &
+                                    (project_df['Tissue'] == tissue) &
+                                    (project_df['Visit'] == visit)
+                                ]['PatientID'].nunique()
+                                row_data[visit] = patient_count
+    
+                            row_data['Total'] =  project_df[
+                                    (project_df['Omics'] == omics) &
+                                    (project_df['Tissue'] == tissue)
+                                ]['PatientID'].nunique()
+    
+                            result_data.append(row_data)
 
                 result_df = pd.DataFrame(result_data)
                 
@@ -709,17 +774,30 @@ def view_data_id_list():
         with project_tabs[i]:
             project_df = df[df['Project'] == project]
             project_df["Omics_Tissue"] = project_df["Omics"].astype(str) + " (" + project_df["Tissue"].astype(str) + ")"
+            project_df["Omics_Tissue"] = project_df["Omics"].astype(str) + " (" + project_df["Tissue"].astype(str) + ")"
 
-            agg_func = lambda x: ", ".join(x.astype(str))
-            df_pivot = pd.pivot_table(
-                project_df,
-                values = 'SampleID',
-                index = ['PatientID', 'Visit'],
-                columns = "Omics_Tissue",
-                aggfunc = agg_func
-            )
-            df_pivot = df_pivot.sort_index(level=['PatientID', 'Visit'])
-            df_pivot = df_pivot.reset_index()
+            if project == "PRISM":
+                agg_func = lambda x: ", ".join(x.astype(str))
+                df_pivot = pd.pivot_table(
+                    project_df,
+                    values = 'SampleID',
+                    index = ['PatientID', 'Biologics', 'Visit'],
+                    columns = "Omics_Tissue",
+                    aggfunc = agg_func
+                )
+                df_pivot = df_pivot.sort_index(level=['PatientID', 'Biologics', 'Visit'])
+                df_pivot = df_pivot.reset_index()
+            else:            
+                agg_func = lambda x: ", ".join(x.astype(str))
+                df_pivot = pd.pivot_table(
+                    project_df,
+                    values = 'SampleID',
+                    index = ['PatientID', 'Visit'],
+                    columns = "Omics_Tissue",
+                    aggfunc = agg_func
+                )
+                df_pivot = df_pivot.sort_index(level=['PatientID', 'Visit'])
+                df_pivot = df_pivot.reset_index()
             
             st.dataframe(df_pivot, use_container_width=True, hide_index = True)
             st.markdown(
