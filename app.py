@@ -277,14 +277,12 @@ def get_invalid_data(df):
     non_prism_df = df[df['Project'] != 'PRISM'].copy()
     if not non_prism_df.empty:
         non_prism_with_biologics = non_prism_df[non_prism_df['Biologics'].notna()]
-        invalid_biologics_non_prism = pd.DataFrame(non_prism_with_biologics)
-    else:
-        invalid_biologics_non_prism = pd.DataFrame()
+        invalid_biologics.append(pd.DataFrame(non_prism_with_biologics))
     # else:
     #    invalid_results['invalid_biologics_unique'] = pd.DataFrame()
     #    invalid_results['invalid_biologics_non_prism'] = pd.DataFrame()
 
-    return invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data, invalid_biologics, invalid_biologics_non_prism
+    return invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data, invalid_biologics
 
 def get_valid_data(df):
     # 유효한 데이터만 필터링
@@ -1250,11 +1248,11 @@ def data_validation():
         return
     
     # 유효성 검사 실행
-    invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data = get_invalid_data(df)
+    invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data, invalid_biologics = get_invalid_data(df)
     valid_df = get_valid_data(df)
     
     # 유효성 검사 결과 요약
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         is_valid_visit = (len(invalid_visit) == 0)
         st.markdown(
@@ -1294,8 +1292,20 @@ def data_validation():
             </div>
             """, unsafe_allow_html=True
         )
-        
+
     with col4:
+        is_valid_bioloigcis = (len(invalid_biologics) == 0)
+        st.markdown(
+            f"""
+            <div class="{'success-box' if is_valid_bioloigcis else 'error-box'}">
+                <h4>Biologics 체크</h4>
+                <p>{'정상' if is_valid_bioloigcis else f'오류 발견 ({len(invalid_biologics)}건)'}</p>
+                <p>{'모든 Biologics 값이 유효합니다' if is_valid_bioloigcis else f'{len(invalid_biologics)}개 레코드에 문제가 있습니다.'}</p>
+            </div>
+            """, unsafe_allow_html=True
+        )
+        
+    with col5:
         is_valid_duplicate = (len(duplicate_data) == 0)
         st.markdown(
             f"""
@@ -1306,20 +1316,21 @@ def data_validation():
             </div>
             """, unsafe_allow_html=True
         )
-    
+
+
     # 추가 유효성 통계
-    col5, col6 = st.columns(2)
-    with col5:
+    col6, col7 = st.columns(2)
+    with col6:
         total_records = len(df)
         valid_records = len(valid_df) if valid_df is not None else 0
         st.metric("유효한 레코드 / 전체 레코드", f"{valid_records} / {total_records}")
-    with col6:
+    with col7:
         valid_percent = (valid_records / total_records * 100) if total_records > 0 else 0
         st.metric("데이터 유효성 비율", f"{valid_percent:.1f}%")
     
     # 상세 검사 결과 탭
     st.markdown("### 상세 검사 결과")
-    tab1, tab2, tab3, tab4 = st.tabs(["Visit 체크", "Omics-Tissue 체크", "Project 체크", "중복 체크"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Visit 체크", "Omics-Tissue 체크", "Project 체크", "Biologics 체크", "중복 체크"])
     
     with tab1:
         st.info(f"유효한 Visit 값: {', '.join(VALID_VISITS)}")
@@ -1350,6 +1361,12 @@ def data_validation():
             st.success("모든 Project 값이 유효합니다.")
     
     with tab4:
+        if len(invalid_biologics) > 0:
+            st.dataframe(invalid_biologics, use_container_width=True)
+        else:
+            st.success("모든 Biologics 값이 유효합니다.")
+    
+    with tab5:
         st.info("동일한 (PatientID, Visit, Omics, Tissue) 조합은 중복입니다.")
         if len(duplicate_data) > 0:
             st.dataframe(duplicate_data, use_container_width=True)
