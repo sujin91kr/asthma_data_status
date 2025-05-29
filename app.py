@@ -274,17 +274,17 @@ def get_invalid_data(df):
         invalid_biologics = pd.DataFrame()
 
     # PRISM 외 다른 project에 Biologics 정보가 있는지 확인
-    non_prism_df = df[df['Project'] != 'PRISM'].copy()
-    if not non_prism_df.empty:
-        # non_prism_with_biologics = non_prism_df[non_prism_df['Biologics'].notna()]
-        non_prism_with_biologics = non_prism_df[non_prism_df['Biologics']=='nan']
-        non_prism_with_biologics = pd.DataFrame(non_prism_with_biologics)
-    else:
-        non_prism_with_biologics = pd.DataFrame()
-        invalid_biologics = pd.DataFrame()
+    # non_prism_df = df[df['Project'] != 'PRISM'].copy()
+    # if not non_prism_df.empty:
+    #    # non_prism_with_biologics = non_prism_df[non_prism_df['Biologics'].notna()]
+    #    non_prism_with_biologics = non_prism_df[non_prism_df['Biologics']=='nan']
+    #    non_prism_with_biologics = pd.DataFrame(non_prism_with_biologics)
+    # else:
+    #    non_prism_with_biologics = pd.DataFrame()
+    #    invalid_biologics = pd.DataFrame()
         
-    invalid_biologics = pd.concat([invalid_biologics, non_prism_with_biologics], 
-                                 ignore_index = True, sort = False)
+    # invalid_biologics = pd.concat([invalid_biologics, non_prism_with_biologics], 
+    #                              ignore_index = True, sort = False)
 
     return invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data, invalid_biologics
 
