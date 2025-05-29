@@ -277,7 +277,7 @@ def get_invalid_data(df):
     non_prism_df = df[df['Project'] != 'PRISM'].copy()
     if not non_prism_df.empty:
         non_prism_with_biologics = non_prism_df[non_prism_df['Biologics'].notna()]
-        invalid_biologics_non_prism = pd.DataFrame(on_prism_with_biologics)
+        invalid_biologics_non_prism = pd.DataFrame(non_prism_with_biologics)
     else:
         invalid_biologics_non_prism = pd.DataFrame()
     # else:
