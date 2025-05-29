@@ -217,10 +217,15 @@ def load_data():
                 st.error(f"데이터 파일에 필수 컬럼이 누락되었습니다. 필요한 컬럼: {', '.join(required_cols)}")
                 return None
 
-            # Project, PatientID, Visit, Omics, Tissue, SampleID 열의 양쪽 공백 제거
-            for col in ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID", "Biologics"]:
+            # Project, PatientID, Visit, Omics, Tissue, SampleID, Biologics 열의 양쪽 공백 제거
+            for col in ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID"]:
                 if col in df.columns:
                     df[col] = df[col].astype(str).str.strip()
+
+            # Biologics는 원래 NaN을 보존한 채로 strip만 수행
+            if "Biologics" in df.columns:
+                # 문자열인 값에만 strip을 적용하고, NaN은 그대로 둠
+                df["Biologics"] = df["Biologics"].astype(str).str.strip().replace({"nan": np.nan})
 
             # Visit 열 변환: "V1" -> "Visit 1", "V2" -> "Visit 2", ...
             if 'Visit' in df.columns:
