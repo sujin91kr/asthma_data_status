@@ -282,7 +282,7 @@ def get_invalid_data(df):
         non_prism_with_biologics = pd.DataFrame()
         invalid_biologics = pd.DataFrame()
         
-    invalid_biologics = pd.concat([invalid_biologics, b = non_prism_with_biologics], 
+    invalid_biologics = pd.concat([invalid_biologics, non_prism_with_biologics], 
                                  ignore_index = True, sort = False)
 
     return invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data, invalid_biologics
