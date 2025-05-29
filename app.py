@@ -14,7 +14,8 @@ from datetime import datetime, timezone, timedelta
 
 # 설정 및 상수
 CONFIG_FILE = "config.json"
-DATA_FILE = "data/clinical_data.xlsx"
+# DATA_FILE = "data/clinical_data.xlsx"
+DATA_FILE = "https://github.com/sujin91kr/asthma_data_status/clinical_data.xlsx"
 USER_FILE = "data/users.json"
 
 VALID_VISITS = ["Visit 1", "Visit 2", "Visit 3", "Visit 4", "Visit 5"]
