@@ -500,25 +500,25 @@ def view_data_ind_dashboard():
                                            'Biologics': biologics
                                            }
 
-                            for visit in visit_list:
-                                row_data[visit] = 0
-                                
-                            for visit in visit_list:
-                                patient_count = project_df[
-                                    (project_df['Omics'] == omics) &
-                                    (project_df['Tissue'] == tissue) &
-                                    (project_df['Biologics'] == biologics) &
-                                    (project_df['Visit'] == visit)
-                                ]['PatientID'].nunique()
-                                row_data[visit] = patient_count       
-
-                            row_data['Total'] =  project_df[
-                                    (project_df['Omics'] == omics) &
-                                    (project_df['Tissue'] == tissue) &
-                                    (project_df['Biologics'] == biologics)
-                                ]['PatientID'].nunique()
-
-                            result_data.append(row_data)
+                                for visit in visit_list:
+                                    row_data[visit] = 0
+                                    
+                                for visit in visit_list:
+                                    patient_count = project_df[
+                                        (project_df['Omics'] == omics) &
+                                        (project_df['Tissue'] == tissue) &
+                                        (project_df['Biologics'] == biologics) &
+                                        (project_df['Visit'] == visit)
+                                    ]['PatientID'].nunique()
+                                    row_data[visit] = patient_count       
+    
+                                row_data['Total'] =  project_df[
+                                        (project_df['Omics'] == omics) &
+                                        (project_df['Tissue'] == tissue) &
+                                        (project_df['Biologics'] == biologics)
+                                    ]['PatientID'].nunique()
+    
+                                result_data.append(row_data)
     
                 else:
                     for omics in omics_list:
