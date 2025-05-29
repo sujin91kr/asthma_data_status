@@ -1,3 +1,5 @@
+import threading, time
+import requests, schedule
 import streamlit as st
 from streamlit_option_menu import option_menu
 import pandas as pd
@@ -12,6 +14,23 @@ import json
 import re
 from datetime import datetime, timezone, timedelta
 
+def _ping_self():
+    try:
+        requests.get("http://localhost:8501")
+    except:
+        pass
+
+def _run_scheduler():
+    schedule.every(1440).minutes.do(_ping_self)  # 하루마다 호출
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+# 앱이 처음 로드될 때만 백그라운드 스레드 시작
+if "keepalive_started" not in st.session_state:
+    threading.Thread(target=_run_scheduler, daemon=True).start()
+    st.session_state.keepalive_started = True
+    
 # 설정 및 상수
 CONFIG_FILE = "config.json"
 DATA_FILE = "data/clinical_data.xlsx"
