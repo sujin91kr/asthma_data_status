@@ -489,20 +489,19 @@ def view_data_ind_dashboard():
                 result_data = []
 
                 if show_biologics: 
-                    biologics_list = sorted(project_df['Biologics'].dropna().unique())
-                    
                     for omics in omics_list:
                         tissue_list = sorted(project_df[project_df['Omics']==omics]["Tissue"].unique())
                         for tissue in tissue_list:
+                            biologics_list = sorted(project_df[(project_df['Omics']==omics)&
+                                                    (project_df['Tissue']==tissue)]['Biologics'].dropna().unique())
                             for biologics in biologics_list:
                                 row_data = {'Omics': omics,
                                            'Tissue': tissue, 
                                            'Biologics': biologics
                                            }
-
                                 for visit in visit_list:
                                     row_data[visit] = 0
-                                    
+                
                                 for visit in visit_list:
                                     patient_count = project_df[
                                         (project_df['Omics'] == omics) &
