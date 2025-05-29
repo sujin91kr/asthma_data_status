@@ -46,20 +46,23 @@ st.set_page_config(
 # CSS 스타일 정의
 st.markdown("""
 <style>
+    /* 타이틀 및 메인 헤더 */
     .main-header {
         font-size: 25px;
         font-weight: bold;
-        color: #1E3A8A;
+        color: #35666A;
         margin-bottom: 20px;
-        border-bottom: 2px solid #1E3A8A;
+        border-bottom: 2px solid #35666A;
         padding-bottom: 10px;
     }
+    /* 서브 헤더 */
     .sub-header {
         font-size: 20px;
         font-weight: bold;
-        color: #2563EB;
+        color: #35666A;
         margin: 15px 0;
     }
+    /* 성공 메시지 박스 */
     .success-box {
         background-color: #ECFDF5;
         border-left: 5px solid #10B981;
@@ -67,6 +70,7 @@ st.markdown("""
         border-radius: 5px;
         margin-bottom: 10px;
     }
+    /* 에러 메시지 박스 */
     .error-box {
         background-color: #FEF2F2;
         border-left: 5px solid #EF4444;
@@ -74,6 +78,7 @@ st.markdown("""
         border-radius: 5px;
         margin-bottom: 10px;
     }
+    /* 정보 메시지 박스 */
     .info-box {
         background-color: #EFF6FF;
         border-left: 5px solid #3B82F6;
@@ -81,6 +86,7 @@ st.markdown("""
         border-radius: 5px;
         margin-bottom: 10px;
     }
+    /* 경고 메시지 박스 */
     .warning-box {
         background-color: #FFFBEB;
         border-left: 5px solid #F59E0B;
@@ -88,27 +94,31 @@ st.markdown("""
         border-radius: 5px;
         margin-bottom: 10px;
     }
+    /* 탭 스타일 */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #EFF6FF;
-        border-radius: 4px 4px 0px 0px;
+        background-color: #98C1BB; 
+        border-radius: 4px 4px 0 0;
         padding: 10px 16px;
         font-weight: 600;
+        color: #ffffff;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #3B82F6 !important;
-        color: white !important;
+        background-color: #35666A !important; 
+        color: #F67E59 !important; 
     }
+    /* 푸터 스타일 */
     .footer {
         margin-top: 50px;
         text-align: center;
-        color: #6B7280;
+        color: #c5c6c7;
         font-size: 14px;
-        border-top: 1px solid #E5E7EB;
+        border-top: 1px solid #35666A;
         padding-top: 20px;
     }
+    /* Metric 카드 */
     .metric-card {
         background-color: #F9FAFB;
         border-radius: 8px;
@@ -116,6 +126,7 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
         margin-bottom: 16px;
     }
+    /* 파일 경로 박스 */
     .file-path {
         background-color: #F3F4F6;
         padding: 8px 12px;
@@ -131,6 +142,7 @@ st.markdown("""
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+    /* 복사 버튼 */
     .copy-button {
         background-color: transparent;
         border: none;
@@ -154,6 +166,7 @@ function copyToClipboard(text) {
 }
 </script>
 """, unsafe_allow_html=True)
+
 
 #############################################
 # 사용자 관리 함수
@@ -318,7 +331,7 @@ def login_page():
             """
             <div style="background-color: #F9FAFB; padding: 20px; border-radius: 10px; 
                         box-shadow: 0 1px 3px rgba(0,0,0,0.12);">
-                <h3 style="text-align: center; color: #1E3A8A;">로그인</h3>
+                <h3 style="text-align: center; color: #35666;">로그인</h3>
             """, 
             unsafe_allow_html=True
         )
@@ -373,13 +386,13 @@ def main_page():
     with st.sidebar:
         selected_page = option_menu("COREA | PRISM Omics Data Status", available_pages,
                                     icons = icons_list,
-                                    # menu_icon = "app-indicator",
+                                    menu_icon = "app-indicator",
                                     default_index = 0,
                                     styles={
         "container": {"padding": "4!important", "background-color": "#fafafa"},
-        "icon": {"color": "black", "font-size": "25px"},
-        "nav-link": {"font-size": "16px", "text-align": "left", "margin":"0px", "--hover-color": "#fafafa"},
-        "nav-link-selected": {"background-color": "#08c7b4"},
+        "icon": {"color": "black", "font-size": "25px"}, 
+        "nav-link": {"font-size": "16px", "text-align": "left", "margin":"0px", "--hover-color": "#fafafa"}, 
+        "nav-link-selected": {"background-color": "#98C1BB"},
     })
     
     # selected_page = st.sidebar.selectbox("Menu", available_pages)
@@ -574,6 +587,7 @@ def view_data_comb_dashboard():
             ]).sort_values(by = "환자 수", ascending = False)
 
             st.dataframe(combination_df, use_container_width = True, hide_index = True)
+            st.divider()
             
             # 2. 선택한 오믹스 필터링
             st.markdown('<div class="sub-header">오믹스 조합 선택</div>', unsafe_allow_html=True)
@@ -823,7 +837,7 @@ def admin_settings():
             valid_projects_str = ", ".join(VALID_PROJECTS)
             new_valid_projects = st.text_area("유효한 Project 값 (쉼표로 구분)", value=valid_projects_str)
         
-        st.markdown("** Omics-Tissue 조합 설정**")
+        st.markdown("**Omics-Tissue 조합 설정**")
         st.info("Omics-Tissue 조합 설정은 코드 상의 VALID_OMICS_TISSUE 사전을 직접 수정하여 변경할 수 있습니다.")
         
         if st.button("설정 저장"):
