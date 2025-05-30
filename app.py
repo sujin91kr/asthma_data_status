@@ -226,10 +226,6 @@ def authenticate(username, password):
 #############################################
 # 데이터 로딩 및 처리 함수
 #############################################
-def ensure_data_loaded():
-    if "data" not in st.session_state:
-        st.session_state["data"] = load_data()
-
 def load_data():
     if os.path.exists(DATA_FILE):
         try:
