@@ -226,6 +226,10 @@ def authenticate(username, password):
 #############################################
 # 데이터 로딩 및 처리 함수
 #############################################
+def ensure_data_loaded():
+    if "data" not in st.session_state:
+        st.session_state["data"] = load_data()
+
 def load_data():
     if os.path.exists(DATA_FILE):
         try:
@@ -349,6 +353,9 @@ def save_uploaded_file(uploaded_file):
     
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f)
+
+    st.session_state["data"] = load_data()
+
 
 def get_sample_paths(df):
     """
@@ -476,8 +483,8 @@ def view_data_ind_dashboard():
     #st.markdown('<div class="sub-header">오믹스 개별 데이터 현황</div>', unsafe_allow_html=True)
     st.markdown('<div class="main-header">오믹스 개별 데이터 현황</div>', unsafe_allow_html=True)
 
-    df = load_data()
-    if df is None:
+    df = st.session_state.get("data", None)
+    if df is None or df.empty:
         st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
         return
 
@@ -1269,7 +1276,7 @@ def view_data_management():
 
 def data_validation():
     st.markdown('<div class="sub-header">데이터 유효성 검사</div>', unsafe_allow_html=True)
-    df = load_data()
+    df = st.session_state.get("data", None)
     if df is None:
         st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
         return
@@ -1406,6 +1413,7 @@ def data_validation():
 def main():
     # 사용자 초기화
     init_users()
+    ensure_data_loaded()
     
     # 로그인 상태 체크
     if 'authenticated' not in st.session_state:
