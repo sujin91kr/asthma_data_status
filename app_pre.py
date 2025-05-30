@@ -1,3 +1,5 @@
+import threading, time
+import requests, schedule
 import streamlit as st
 from streamlit_option_menu import option_menu
 import pandas as pd
@@ -12,6 +14,23 @@ import json
 import re
 from datetime import datetime, timezone, timedelta
 
+def _ping_self():
+    try:
+        requests.get("http://localhost:8501")
+    except:
+        pass
+
+def _run_scheduler():
+    schedule.every(1440).minutes.do(_ping_self)  # 하루마다 호출
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+# 앱이 처음 로드될 때만 백그라운드 스레드 시작
+if "keepalive_started" not in st.session_state:
+    threading.Thread(target=_run_scheduler, daemon=True).start()
+    st.session_state.keepalive_started = True
+    
 # 설정 및 상수
 CONFIG_FILE = "config.json"
 DATA_FILE = "data/clinical_data.xlsx"
@@ -212,15 +231,20 @@ def load_data():
         try:
             df = pd.read_excel(DATA_FILE)
             # 필수 컬럼 확인
-            required_cols = ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID", "Date"]
+            required_cols = ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID", "Date", "Biologics"]
             if not all(col in df.columns for col in required_cols):
                 st.error(f"데이터 파일에 필수 컬럼이 누락되었습니다. 필요한 컬럼: {', '.join(required_cols)}")
                 return None
 
-            # Project, PatientID, Visit, Omics, Tissue, SampleID 열의 양쪽 공백 제거
+            # Project, PatientID, Visit, Omics, Tissue, SampleID, Biologics 열의 양쪽 공백 제거
             for col in ["Project", "PatientID", "Visit", "Omics", "Tissue", "SampleID"]:
                 if col in df.columns:
                     df[col] = df[col].astype(str).str.strip()
+
+            # Biologics는 원래 NaN을 보존한 채로 strip만 수행
+            if "Biologics" in df.columns:
+                # 문자열인 값에만 strip을 적용하고, NaN은 그대로 둠
+                df["Biologics"] = df["Biologics"].astype(str).str.strip().replace({"nan": np.nan})
 
             # Visit 열 변환: "V1" -> "Visit 1", "V2" -> "Visit 2", ...
             if 'Visit' in df.columns:
@@ -257,8 +281,36 @@ def get_invalid_data(df):
     # 중복 데이터 체크 (PatientID, Visit, Omics, Tissue 기준)
     duplicate_keys = df.duplicated(subset=['PatientID', 'Visit', 'Omics', 'Tissue'], keep=False)
     duplicate_data = df[duplicate_keys].sort_values(by=['PatientID', 'Visit', 'Omics', 'Tissue']).copy()
-    
-    return invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data
+
+    # Biologics 관련 유효성 검사
+    # if 'Biologics' in df.columns:
+    # PRISM 프로젝트에서 각 PatientID당 unique한 Biologics가 1개인지 확인
+    prism_df = df[df['Project'] == 'PRISM'].copy()
+    if not prism_df.empty:
+        biologics_per_patient = prism_df.groupby('PatientID')['Biologics'].nunique()
+        invalid_biologics_unique = biologics_per_patient[biologics_per_patient != 1]
+        if not invalid_biologics_unique.empty:
+            invalid_biologics_patients = prism_df[prism_df['PatientID'].isin(invalid_biologics_unique.index)]
+            invalid_biologics = pd.DataFrame(invalid_biologics_patients)
+        else:
+            invalid_biologics = pd.DataFrame()
+    else:
+        invalid_biologics = pd.DataFrame()
+
+    # PRISM 외 다른 project에 Biologics 정보가 있는지 확인
+    # non_prism_df = df[df['Project'] != 'PRISM'].copy()
+    # if not non_prism_df.empty:
+    #    # non_prism_with_biologics = non_prism_df[non_prism_df['Biologics'].notna()]
+    #    non_prism_with_biologics = non_prism_df[non_prism_df['Biologics']=='nan']
+    #    non_prism_with_biologics = pd.DataFrame(non_prism_with_biologics)
+    # else:
+    #    non_prism_with_biologics = pd.DataFrame()
+    #    invalid_biologics = pd.DataFrame()
+        
+    # invalid_biologics = pd.concat([invalid_biologics, non_prism_with_biologics], 
+    #                              ignore_index = True, sort = False)
+
+    return invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data, invalid_biologics
 
 def get_valid_data(df):
     # 유효한 데이터만 필터링
@@ -277,7 +329,7 @@ def get_valid_data(df):
     valid_df = pd.DataFrame(valid_rows)
     
     # 중복 제거 (첫 번째 항목 유지)
-    valid_df = valid_df.drop_duplicates(subset=['PatientID', 'Visit', 'Omics', 'Tissue'], keep='first')
+    valid_df = valid_df.drop_duplicates(subset=['PatientID', 'Biologics', 'Visit', 'Omics', 'Tissue'], keep='first')
     
     return valid_df
 
@@ -448,29 +500,67 @@ def view_data_ind_dashboard():
                     st.warning("데이터가 없습니다.")
                     continue
 
+                # PRISM 프로젝트에 대해서만 Biologics 옵션 제공
+                show_biologics = False
+                if project == "PRISM":
+                    show_biologics = st.checkbox(f"Biologics 정보 포함", key = f"biologics_check")  
+                
                 result_data = []
-                for omics in omics_list:
-                    tissue_list = sorted(project_df[project_df['Omics']==omics]["Tissue"].unique())
-                    for tissue in tissue_list:
-                        row_data = {'Omics': omics,
-                                   'Tissue': tissue}
-                        for visit in visit_list:
-                            row_data[visit] = 0
-                            
-                        for visit in visit_list:
-                            patient_count = project_df[
-                                (project_df['Omics'] == omics) &
-                                (project_df['Tissue'] == tissue) &
-                                (project_df['Visit'] == visit)
-                            ]['PatientID'].nunique()
-                            row_data[visit] = patient_count
 
-                        row_data['Total'] =  project_df[
-                                (project_df['Omics'] == omics) &
-                                (project_df['Tissue'] == tissue)
-                            ]['PatientID'].nunique()
-
-                        result_data.append(row_data)
+                if show_biologics: 
+                    for omics in omics_list:
+                        tissue_list = sorted(project_df[project_df['Omics']==omics]["Tissue"].unique())
+                        for tissue in tissue_list:
+                            biologics_list = sorted(project_df[(project_df['Omics']==omics)&
+                                                    (project_df['Tissue']==tissue)]['Biologics'].dropna().unique())
+                            for biologics in biologics_list:
+                                row_data = {'Omics': omics,
+                                           'Tissue': tissue, 
+                                           'Biologics': biologics
+                                           }
+                                for visit in visit_list:
+                                    row_data[visit] = 0
+                
+                                for visit in visit_list:
+                                    patient_count = project_df[
+                                        (project_df['Omics'] == omics) &
+                                        (project_df['Tissue'] == tissue) &
+                                        (project_df['Biologics'] == biologics) &
+                                        (project_df['Visit'] == visit)
+                                    ]['PatientID'].nunique()
+                                    row_data[visit] = patient_count       
+    
+                                row_data['Total'] =  project_df[
+                                        (project_df['Omics'] == omics) &
+                                        (project_df['Tissue'] == tissue) &
+                                        (project_df['Biologics'] == biologics)
+                                    ]['PatientID'].nunique()
+    
+                                result_data.append(row_data)
+    
+                else:
+                    for omics in omics_list:
+                        tissue_list = sorted(project_df[project_df['Omics']==omics]["Tissue"].unique())
+                        for tissue in tissue_list:
+                            row_data = {'Omics': omics,
+                                       'Tissue': tissue}
+                            for visit in visit_list:
+                                row_data[visit] = 0
+                                
+                            for visit in visit_list:
+                                patient_count = project_df[
+                                    (project_df['Omics'] == omics) &
+                                    (project_df['Tissue'] == tissue) &
+                                    (project_df['Visit'] == visit)
+                                ]['PatientID'].nunique()
+                                row_data[visit] = patient_count
+    
+                            row_data['Total'] =  project_df[
+                                    (project_df['Omics'] == omics) &
+                                    (project_df['Tissue'] == tissue)
+                                ]['PatientID'].nunique()
+    
+                            result_data.append(row_data)
 
                 result_df = pd.DataFrame(result_data)
                 
@@ -709,17 +799,30 @@ def view_data_id_list():
         with project_tabs[i]:
             project_df = df[df['Project'] == project]
             project_df["Omics_Tissue"] = project_df["Omics"].astype(str) + " (" + project_df["Tissue"].astype(str) + ")"
+            project_df["Omics_Tissue"] = project_df["Omics"].astype(str) + " (" + project_df["Tissue"].astype(str) + ")"
 
-            agg_func = lambda x: ", ".join(x.astype(str))
-            df_pivot = pd.pivot_table(
-                project_df,
-                values = 'SampleID',
-                index = ['PatientID', 'Visit'],
-                columns = "Omics_Tissue",
-                aggfunc = agg_func
-            )
-            df_pivot = df_pivot.sort_index(level=['PatientID', 'Visit'])
-            df_pivot = df_pivot.reset_index()
+            if project == "PRISM":
+                agg_func = lambda x: ", ".join(x.astype(str))
+                df_pivot = pd.pivot_table(
+                    project_df,
+                    values = 'SampleID',
+                    index = ['PatientID', 'Biologics', 'Visit'],
+                    columns = "Omics_Tissue",
+                    aggfunc = agg_func
+                )
+                df_pivot = df_pivot.sort_index(level=['PatientID', 'Biologics', 'Visit'])
+                df_pivot = df_pivot.reset_index()
+            else:            
+                agg_func = lambda x: ", ".join(x.astype(str))
+                df_pivot = pd.pivot_table(
+                    project_df,
+                    values = 'SampleID',
+                    index = ['PatientID', 'Visit'],
+                    columns = "Omics_Tissue",
+                    aggfunc = agg_func
+                )
+                df_pivot = df_pivot.sort_index(level=['PatientID', 'Visit'])
+                df_pivot = df_pivot.reset_index()
             
             st.dataframe(df_pivot, use_container_width=True, hide_index = True)
             st.markdown(
@@ -1172,11 +1275,11 @@ def data_validation():
         return
     
     # 유효성 검사 실행
-    invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data = get_invalid_data(df)
+    invalid_visit, invalid_omics_tissue, invalid_project, duplicate_data, invalid_biologics = get_invalid_data(df)
     valid_df = get_valid_data(df)
     
     # 유효성 검사 결과 요약
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         is_valid_visit = (len(invalid_visit) == 0)
         st.markdown(
@@ -1216,8 +1319,20 @@ def data_validation():
             </div>
             """, unsafe_allow_html=True
         )
-        
+
     with col4:
+        is_valid_bioloigcis = (len(invalid_biologics) == 0)
+        st.markdown(
+            f"""
+            <div class="{'success-box' if is_valid_bioloigcis else 'error-box'}">
+                <h4>Biologics 체크</h4>
+                <p>{'정상' if is_valid_bioloigcis else f'오류 발견 ({len(invalid_biologics)}건)'}</p>
+                <p>{'모든 Biologics 값이 유효합니다' if is_valid_bioloigcis else f'{len(invalid_biologics)}개 레코드에 문제가 있습니다.'}</p>
+            </div>
+            """, unsafe_allow_html=True
+        )
+        
+    with col5:
         is_valid_duplicate = (len(duplicate_data) == 0)
         st.markdown(
             f"""
@@ -1228,20 +1343,21 @@ def data_validation():
             </div>
             """, unsafe_allow_html=True
         )
-    
+
+
     # 추가 유효성 통계
-    col5, col6 = st.columns(2)
-    with col5:
+    col6, col7 = st.columns(2)
+    with col6:
         total_records = len(df)
         valid_records = len(valid_df) if valid_df is not None else 0
         st.metric("유효한 레코드 / 전체 레코드", f"{valid_records} / {total_records}")
-    with col6:
+    with col7:
         valid_percent = (valid_records / total_records * 100) if total_records > 0 else 0
         st.metric("데이터 유효성 비율", f"{valid_percent:.1f}%")
     
     # 상세 검사 결과 탭
     st.markdown("### 상세 검사 결과")
-    tab1, tab2, tab3, tab4 = st.tabs(["Visit 체크", "Omics-Tissue 체크", "Project 체크", "중복 체크"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Visit 체크", "Omics-Tissue 체크", "Project 체크", "Biologics 체크", "중복 체크"])
     
     with tab1:
         st.info(f"유효한 Visit 값: {', '.join(VALID_VISITS)}")
@@ -1272,6 +1388,12 @@ def data_validation():
             st.success("모든 Project 값이 유효합니다.")
     
     with tab4:
+        if len(invalid_biologics) > 0:
+            st.dataframe(invalid_biologics, use_container_width=True)
+        else:
+            st.success("모든 Biologics 값이 유효합니다.")
+    
+    with tab5:
         st.info("동일한 (PatientID, Visit, Omics, Tissue) 조합은 중복입니다.")
         if len(duplicate_data) > 0:
             st.dataframe(duplicate_data, use_container_width=True)
