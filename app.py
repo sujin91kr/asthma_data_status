@@ -1413,13 +1413,16 @@ def data_validation():
 def main():
     # 사용자 초기화
     init_users()
-    ensure_data_loaded()
     
     # 로그인 상태 체크
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
         st.session_state.is_admin = False
-    
+
+    # ✅ 데이터 초기화: 항상 최신 데이터 불러오기
+    if "data" not in st.session_state:
+        st.session_state["data"] = load_data()
+        
     # 로그인 화면 또는 메인 페이지 표시
     if st.session_state.authenticated:
         main_page()
