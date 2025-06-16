@@ -866,17 +866,6 @@ def admin_settings():
                 # 데이터 유효성 검사
                 st.markdown("#### 업로드된 데이터 유효성 검사")
                 data_validation()
-
-        if uploaded_file is not None and st.button("파일 업로드"):
-            save_uploaded_file(uploaded_file)
-            st.success(f"파일이 성공적으로 업로드되었습니다: {uploaded_file.name}")
-        
-        st.divider()
-
-        # 데이터 유효성 검사
-        st.markdown("#### 업로드된 데이터 유효성 검사")
-        data_validation()
-                
     
     # 사용자 관리 탭
     with admin_tabs[1]:
