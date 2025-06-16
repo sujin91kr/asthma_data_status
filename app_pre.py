@@ -350,6 +350,9 @@ def save_uploaded_file(uploaded_file):
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f)
 
+    st.session_state["data"] = load_data()
+
+
 def get_sample_paths(df):
     """
     실제 환경에서는 각 조직의 파일이 저장된 위치(서버 경로 등)를 구성 규칙에 맞춰서 반환하도록 구현합니다.
@@ -476,8 +479,8 @@ def view_data_ind_dashboard():
     #st.markdown('<div class="sub-header">오믹스 개별 데이터 현황</div>', unsafe_allow_html=True)
     st.markdown('<div class="main-header">오믹스 개별 데이터 현황</div>', unsafe_allow_html=True)
 
-    df = load_data()
-    if df is None:
+    df = st.session_state.get("data", None)
+    if df is None or df.empty:
         st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
         return
 
@@ -853,16 +856,14 @@ def admin_settings():
         
         uploaded_file = st.file_uploader("Excel 파일 선택", type=["xlsx", "xls"])
         
-        if uploaded_file is not None:
-            if st.button("파일 업로드"):
-                # 파일 저장
-                save_uploaded_file(uploaded_file)
-                st.success(f"파일이 성공적으로 업로드되었습니다: {uploaded_file.name}")
-                st.divider()
-                
-                # 데이터 유효성 검사
-                st.markdown("#### 업로드된 데이터 유효성 검사")
-                data_validation()
+        if uploaded_file is not None and st.button("파일 업로드"):
+            save_uploaded_file(uploaded_file)
+            st.success(f"파일이 성공적으로 업로드되었습니다: {uploaded_file.name}")
+
+        st.divider()
+        st.markdown("#### 현재 데이터 유효성 검사 결과")
+        data_validation()
+
     
     # 사용자 관리 탭
     with admin_tabs[1]:
@@ -1269,7 +1270,7 @@ def view_data_management():
 
 def data_validation():
     st.markdown('<div class="sub-header">데이터 유효성 검사</div>', unsafe_allow_html=True)
-    df = load_data()
+    df = st.session_state.get("data", None)
     if df is None:
         st.warning("데이터가 없습니다. 먼저 Excel 파일을 업로드해주세요.")
         return
@@ -1411,7 +1412,11 @@ def main():
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
         st.session_state.is_admin = False
-    
+
+    # ✅ 데이터 초기화: 항상 최신 데이터 불러오기
+    if "data" not in st.session_state:
+        st.session_state["data"] = load_data()
+        
     # 로그인 화면 또는 메인 페이지 표시
     if st.session_state.authenticated:
         main_page()
