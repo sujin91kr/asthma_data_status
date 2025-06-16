@@ -226,6 +226,7 @@ def authenticate(username, password):
 #############################################
 # 데이터 로딩 및 처리 함수
 #############################################
+@st.cache_data(ttl=None, show_spinner=False)
 def load_data():
     if os.path.exists(DATA_FILE):
         try:
@@ -350,6 +351,7 @@ def save_uploaded_file(uploaded_file):
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f)
 
+    st.cache_data.clear()
     st.session_state["data"] = load_data()
 
 
